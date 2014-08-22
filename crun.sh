@@ -39,23 +39,19 @@ function main {
     fi
   done
 
+  if [[ $inline ]]; then
+    source_file="$csource"
+  fi
+
   if [[ !$inline ]]; then
-    check_file "$csource"
+    check_file "$source_file"
     libmath=""
-    if grep -q -E '^#include ?<math.h>' $csource >/dev/null 2>/dev/null; then
+    if grep -q -E '^#include ?<math.h>' "$source_file" >/dev/null 2>/dev/null; then
       libmath="-lm"
     fi
   fi
 
-  cbinary="$csource.$RANDOM"
-  tries=1
-  while [[ -e "$cbinary" ]]; do
-    cbinary="$csource.$RANDOM"
-    tries=$((tries+1))
-    if [[ $tries -gt 50 ]]; then
-      fail "could not find  $cbinary already exists"
-    fi
-  done
+  cbinary=$(make_filename "$source_file")
 
   # Compile, execute, and cleanup
   if gcc "$csource" -o "$cbinary" -Wall $libmath; then
@@ -70,7 +66,7 @@ function main {
   fi
 }
 
-# check if the source file exists and is the correct type
+# Check if the source file exists and is the correct type.
 function check_file {
   csource="$1"
   if [[ ! -s "$csource" ]]; then
@@ -80,6 +76,21 @@ function check_file {
   if [[ $filetype != "text/x-c" ]]; then
     fail '"file" reports the source file type as "'$filetype'"'
   fi
+}
+
+# Return a random, nonexisting filename from "$1.$RANDOM". Fails after 50 tries.
+function make_filename {
+  base="$1"
+  filename="$base.$RANDOM"
+  tries=1
+  while [[ -e "$filename" ]]; do
+    filename="$base.$RANDOM"
+    tries=$((tries+1))
+    if [[ $tries -gt 50 ]]; then
+      fail 'could not find available temp filename for "'$base'"'
+    fi
+  done
+  echo "$filename"
 }
 
 function fail {
