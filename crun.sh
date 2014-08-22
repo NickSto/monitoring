@@ -1,24 +1,39 @@
 #!/usr/bin/env bash
 
 USAGE="Usage: \$ $(basename $0) source.c [options for your program]
+       \$ $(basename $0) -c 'C source code'
 This will compile and execute a C file in one command, so you can make believe
 you're still in scripting-land.
 As a bonus, it will choose a temporary filename for the binary and delete it
-afterward, so you don't overwrite any existing binary."
+afterward, so you don't overwrite any existing binary.
+With the -c option, it will paste your code into the main() function of a
+standard C template."
 
 function main {
-  if [[ $# -lt 1 ]]; then
+
+  fromfile="true"
+  if [[ $# -eq 0 ]] || [[ "$1" == '-h' ]]; then
     fail "$USAGE"
+  elif [[ "$1" == '-c' ]]; then
+    fromfile=0
+    die "inline option not yet implemented"
   fi
 
   i=0
+  if [[ $fromfile ]]; then
+    source_i=1
+    opts_start=2
+  else
+    source_i=2
+    opts_start=3
+  fi
   declare -a opts
   for opt in "$@"; do
     i=$((i+1))
     #TODO: allow for options to this script before the source file
-    if [[ $i == 1 ]]; then
+    if [[ $i == $source_i ]]; then
       csource="$opt"
-    else
+    elif [[ $i -gt $source_i ]]; then
       # options for the actual program being executed
       opts[i]="$opt"
     fi
