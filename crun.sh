@@ -7,7 +7,16 @@ you're still in scripting-land.
 As a bonus, it will choose a temporary filename for the binary and delete it
 afterward, so you don't overwrite any existing binary.
 With the -c option, it will paste your code into the main() function of a
-standard C template."
+standard C template. By default it #includes only <stdio.h>."
+#TODO: allow specifying arbitrary #includes
+
+C_TEMPLATE="
+#include <stdio.h>
+
+int main(int argc, char *argv[]) {
+  %s;
+  return 0;
+}"
 
 function main {
 
@@ -19,7 +28,6 @@ function main {
   # Detect '-c' argument. Means the rest of the arguments will be shifted by 1.
   i=0
   if [[ "$1" == '-c' ]]; then
-    fail 'inline option not yet implemented'
     inline='true'
     source_i=2
   else
@@ -47,8 +55,8 @@ function main {
   # filename of precious source code. Just so no bug ever results in that, even
   # for non-inline source, I'll make a copy of the file and just work with that.
   if [[ $inline ]]; then
-    source_file=$(make_filename "inline.tmp.c")
-    # then paste the inline code into the file
+    source_file=$(make_filename "inline.tmp" ".c")
+    [[ ! -e "$source_file" ]] && printf "$C_TEMPLATE" "$csource" > "$source_file"
   else
     source_file=$(make_filename "$csource" ".c")
     cp "$csource" "$source_file"
