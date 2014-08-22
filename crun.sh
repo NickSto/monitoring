@@ -25,7 +25,12 @@ function main {
   done
 
   if [[ ! -s "$csource" ]]; then
-    fail "Error: $csource nonexistent or empty"
+    fail "$csource nonexistent or empty"
+  fi
+
+  filetype=$(file -b --mime-type "$csource")
+  if [[ $filetype != "text/x-c" ]]; then
+    fail '"file" reports the source file type as "'$filetype'"'
   fi
 
   libmath=""
@@ -39,7 +44,7 @@ function main {
     cbinary="$csource.$RANDOM"
     tries=$((tries+1))
     if [[ $tries -gt 50 ]]; then
-      fail "Error: could not find  $cbinary already exists"
+      fail "could not find  $cbinary already exists"
     fi
   done
 
@@ -52,12 +57,12 @@ function main {
     fi
     rm "$cbinary"
   else
-    fail "Compilation error"
+    fail "Compilation failed"
   fi
 }
 
 function fail {
-  echo "$*" >&2
+  echo "Error: $*" >&2
   exit 1
 }
 
