@@ -39,10 +39,19 @@ function main {
     fi
   done
 
+  # For inline code, create a temporary file and paste the code into it, then
+  # we'll rm it at the end. Also make a copy of non-inline code to work from.
+  # Why? The filename for the C source is stored in the same variable in both
+  # cases, but sometimes it's rm'd at the end. Even with an "if [[ $inline ]]"
+  # check around that, I'm paranoid about rm-ing a variable which *could* be the
+  # filename of precious source code. Just so no bug ever results in that, even
+  # for non-inline source, I'll make a copy of the file and just work with that.
   if [[ $inline ]]; then
     source_file=$(make_filename "inline.tmp.c")
+    # then paste the inline code into the file
   else
-    source_file="$csource"
+    source_file=$(make_filename "$csource" ".c")
+    cp "$csource" "$source_file"
   fi
 
   if [[ !$inline ]]; then
@@ -66,6 +75,8 @@ function main {
   else
     fail "Compilation failed"
   fi
+
+  rm "$source_file"
 }
 
 # Check if the source file exists and is the correct type.
@@ -80,13 +91,15 @@ function check_file {
   fi
 }
 
-# Return a random, nonexisting filename from "$1.$RANDOM". Fails after 50 tries.
+# Return a random, nonexisting filename from "$1.$RANDOM$ext".
+# Fails after 50 tries.
 function make_filename {
   base="$1"
-  filename="$base.$RANDOM"
+  ext="$2"
+  filename="$base.$RANDOM$ext"
   tries=1
   while [[ -e "$filename" ]]; do
-    filename="$base.$RANDOM"
+    filename="$base.$RANDOM$ext"
     tries=$((tries+1))
     if [[ $tries -gt 50 ]]; then
       fail 'could not find available temp filename for "'$base'"'
