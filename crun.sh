@@ -39,18 +39,12 @@ function main {
     fi
   done
 
-  if [[ ! -s "$csource" ]]; then
-    fail "$csource nonexistent or empty"
-  fi
-
-  filetype=$(file -b --mime-type "$csource")
-  if [[ $filetype != "text/x-c" ]]; then
-    fail '"file" reports the source file type as "'$filetype'"'
-  fi
-
-  libmath=""
-  if grep -q -E '^#include ?<math.h>' $csource >/dev/null 2>/dev/null; then
-    libmath="-lm"
+  if [[ !$inline ]]; then
+    check_file "$csource"
+    libmath=""
+    if grep -q -E '^#include ?<math.h>' $csource >/dev/null 2>/dev/null; then
+      libmath="-lm"
+    fi
   fi
 
   cbinary="$csource.$RANDOM"
@@ -73,6 +67,18 @@ function main {
     rm "$cbinary"
   else
     fail "Compilation failed"
+  fi
+}
+
+# check if the source file exists and is the correct type
+function check_file {
+  csource="$1"
+  if [[ ! -s "$csource" ]]; then
+    fail "$csource nonexistent or empty"
+  fi
+  filetype=$(file -b --mime-type "$csource")
+  if [[ $filetype != "text/x-c" ]]; then
+    fail '"file" reports the source file type as "'$filetype'"'
   fi
 }
 
