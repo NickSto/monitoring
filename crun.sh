@@ -23,7 +23,7 @@ function main {
     inline='true'
     source_i=2
   else
-    inline=0
+    inline=''
     source_i=1
   fi
   # Will read options to the program into "opts" array
@@ -40,6 +40,8 @@ function main {
   done
 
   if [[ $inline ]]; then
+    source_file=$(make_filename "inline.tmp.c")
+  else
     source_file="$csource"
   fi
 
