@@ -16,7 +16,7 @@ function main {
     fail "$USAGE"
   elif [[ "$1" == '-c' ]]; then
     fromfile=0
-    die "inline option not yet implemented"
+    fail "inline option not yet implemented"
   fi
 
   i=0
@@ -65,7 +65,7 @@ function main {
 
   # Compile, execute, and cleanup
   if gcc "$csource" -o "$cbinary" -Wall $libmath; then
-    if [[ -z ${opts[@]} ]]; then
+    if [[ -n ${opts[@]} ]]; then
       ./"$cbinary" "${opts[@]}"
     else
       ./"$cbinary"
