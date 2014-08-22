@@ -11,22 +11,22 @@ standard C template."
 
 function main {
 
-  fromfile="true"
   if [[ $# -eq 0 ]] || [[ "$1" == '-h' ]]; then
     fail "$USAGE"
-  elif [[ "$1" == '-c' ]]; then
-    fromfile=0
-    fail "inline option not yet implemented"
   fi
 
+  # Read arguments
+  # Detect '-c' argument. Means the rest of the arguments will be shifted by 1.
   i=0
-  if [[ $fromfile ]]; then
-    source_i=1
-    opts_start=2
-  else
+  if [[ "$1" == '-c' ]]; then
+    fail 'inline option not yet implemented'
+    inline='true'
     source_i=2
-    opts_start=3
+  else
+    inline=0
+    source_i=1
   fi
+  # Will read options to the program into "opts" array
   declare -a opts
   for opt in "$@"; do
     i=$((i+1))
