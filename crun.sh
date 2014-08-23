@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 
-USAGE="Usage: \$ $(basename $0) source.c [options for your program]
-       \$ $(basename $0) -c 'C source code'
+USAGE="Usage: \$ $(basename $0) [script args] source.c [program args]
+       \$ $(basename $0) [script args] -c 'C source code' [program args]
 This will compile and execute a C file in one command, so you can make believe
 you're still in scripting-land.
 As a bonus, it will choose a temporary filename for the binary and delete it
 afterward, so you don't overwrite any existing binary.
-With the -c option, it will paste your code into the main() function of a
-standard C template. By default it #includes only <stdio.h>."
+With the -c flag (\"inline\" option), it will paste your code into the main()
+function of a standard C template.
+[program args] are any arguments to pass to your C program.
+[script args] are arguments for this script:
+-i: headers to #include in the inline source. It will not add the angle brackets
+    for you, so do that yourself. Use once for each header to include.
+    Example: \"-i '<string.h>'\" will result in the line \"#include <string.h>\"
+    at the top of the resulting source."
 #TODO: allow specifying arbitrary #includes
 
+DEFAULT_INCLUDES="#include <stdio.h>
+"
 C_TEMPLATE="
 #include <stdio.h>
-
 int main(int argc, char *argv[]) {
   %s;
   return 0;
@@ -24,28 +31,41 @@ function main {
     fail "$USAGE"
   fi
 
+  include_text="$DEFAULT_INCLUDES"
+
   # Read arguments
-  # Detect '-c' argument. Means the rest of the arguments will be shifted by 1.
+  # Will read arguments to the program into "prog_args" array
+  declare -a prog_args
   i=0
-  if [[ "$1" == '-c' ]]; then
-    inline='true'
-    source_i=2
-  else
-    inline=''
-    source_i=1
-  fi
-  # Will read options to the program into "opts" array
-  declare -a opts
-  for opt in "$@"; do
-    i=$((i+1))
-    #TODO: allow for options to this script before the source file
-    if [[ $i == $source_i ]]; then
-      csource="$opt"
-    elif [[ $i -gt $source_i ]]; then
-      # options for the actual program being executed
-      opts[i]="$opt"
+  state='script_args'
+  get_value=''
+  for arg in "$@"; do
+    if [[ "$arg" == '-c' ]]; then
+      inline='true'
+    elif [[ "$arg" == '-i' ]]; then
+      # flag requires a value
+      get_value='include'
+    elif [[ $get_value ]]; then
+      # preceding flag needs a value, so this should be it
+      if [[ $get_value == 'include' ]]; then
+        include_text="${include_text}#include $arg
+"
+      fi
+      get_value=''
+    elif [[ $state == 'script_args' ]]; then
+      csource="$arg"
+      state='prog_args'
+    elif [[ $state == 'prog_args' ]]; then
+      prog_args[i]="$arg"
+      i=$((i+1))
+    else
+      fail "invalid state in argument reading"
     fi
   done
+  # You can't add #includes to source files with -i
+  if [[ ! $inline ]] && [[ "$include_text" != "$DEFAULT_INCLUDES" ]]; then
+    fail '-i flag given without -c flag. -i only works for inline source.'
+  fi
 
   # For inline code, create a temporary file and paste the code into it, then
   # we'll rm it at the end. Also make a copy of non-inline code to work from.
@@ -62,7 +82,7 @@ function main {
     cp "$csource" "$source_file"
   fi
 
-  if [[ !$inline ]]; then
+  if [[ ! $inline ]]; then
     check_file "$source_file"
     libmath=""
     if grep -q -E '^#include ?<math.h>' "$source_file" >/dev/null 2>/dev/null; then
@@ -73,9 +93,9 @@ function main {
   cbinary=$(make_filename "$source_file")
 
   # Compile, execute, and cleanup
-  if gcc "$csource" -o "$cbinary" -Wall $libmath; then
-    if [[ -n ${opts[@]} ]]; then
-      ./"$cbinary" "${opts[@]}"
+  if gcc "$source_file" -o "$cbinary" -Wall $libmath; then
+    if [[ -n ${prog_args[@]} ]]; then
+      ./"$cbinary" "${prog_args[@]}"
     else
       ./"$cbinary"
     fi
@@ -86,6 +106,9 @@ function main {
 
   rm "$source_file"
 }
+
+
+#################### FUNCTIONS ####################
 
 # Check if the source file exists and is the correct type.
 function check_file {
