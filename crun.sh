@@ -1,34 +1,38 @@
 #!/usr/bin/env bash
 
+DEFAULT_INCLUDES="#include <stdio.h>
+"
+C_TEMPLATE="%s
+int main(int argc, char *argv[]) {
+  %s;
+  return 0;
+}"
+
 USAGE="Usage: \$ $(basename $0) [script args] source.c [program args]
        \$ $(basename $0) [script args] -c 'C source code' [program args]
 This will compile and execute a C file in one command, so you can make believe
 you're still in scripting-land.
 As a bonus, it will choose a temporary filename for the binary and delete it
 afterward, so you don't overwrite any existing binary.
-With the -c flag (\"inline\" option), it will paste your code into the main()
-function of a standard C template.
-[program args] are any arguments to pass to your C program.
-[script args] are arguments for this script:
--i: headers to #include in the inline source. It will not add the angle brackets
+    [program args] are any arguments to pass to your C program.
+    [script args] are arguments for this script:
+-c: \"Inline\" option. Instead of giving a source file, give some literal C code
+    to be executed. The code will be pasted into the main() function of a
+    generic C template.
+-p: Print the full C source to stdout before executing. Most useful for -c
+    inline code, but will also print source files.
+-i: Headers to #include in the inline source. It will not add the angle brackets
     for you, so do that yourself. Use once for each header to include.
     Example: \"-i '<string.h>'\" will result in the line \"#include <string.h>\"
-    at the top of the resulting source."
-#TODO: allow specifying arbitrary #includes
-
-DEFAULT_INCLUDES="#include <stdio.h>
-"
-C_TEMPLATE="
-#include <stdio.h>
-int main(int argc, char *argv[]) {
-  %s;
-  return 0;
-}"
+    at the top of the resulting source.
+    Default headers:
+$DEFAULT_INCLUDES"
 
 function main {
 
   if [[ $# -eq 0 ]] || [[ "$1" == '-h' ]]; then
-    fail "$USAGE"
+    echo -n "$USAGE" >&2
+    exit 1
   fi
 
   include_text="$DEFAULT_INCLUDES"
@@ -37,11 +41,14 @@ function main {
   # Will read arguments to the program into "prog_args" array
   declare -a prog_args
   i=0
-  state='script_args'
+  print_source=''
   get_value=''
+  state='script_args'
   for arg in "$@"; do
     if [[ "$arg" == '-c' ]]; then
       inline='true'
+    elif [[ "$arg" == '-p' ]]; then
+      print_source='true'
     elif [[ "$arg" == '-i' ]]; then
       # flag requires a value
       get_value='include'
@@ -76,7 +83,7 @@ function main {
   # for non-inline source, I'll make a copy of the file and just work with that.
   if [[ $inline ]]; then
     source_file=$(make_filename "inline.tmp" ".c")
-    [[ ! -e "$source_file" ]] && printf "$C_TEMPLATE" "$csource" > "$source_file"
+    printf "$C_TEMPLATE" "$include_text" "$csource" > "$source_file"
   else
     source_file=$(make_filename "$csource" ".c")
     cp "$csource" "$source_file"
@@ -88,6 +95,11 @@ function main {
     if grep -q -E '^#include ?<math.h>' "$source_file" >/dev/null 2>/dev/null; then
       libmath="-lm"
     fi
+  fi
+
+  if [[ $print_source ]]; then
+    cat "$source_file"
+    echo
   fi
 
   cbinary=$(make_filename "$source_file")
