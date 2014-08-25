@@ -5,7 +5,7 @@ DEFAULT_INCLUDES="#include <stdio.h>
 C_TEMPLATE="%s
 int main(int argc, char *argv[]) {
   %s;
-  return 0;
+  return(0);
 }"
 
 USAGE="Usage: \$ $(basename $0) [script args] source.c [program args]
@@ -89,14 +89,17 @@ function main {
     cp "$csource" "$source_file"
   fi
 
+  # Check source file
+  libmath=""
   if [[ ! $inline ]]; then
     check_file "$source_file"
-    libmath=""
+    # If math.h is included, -lm needs to be added to the gcc command
     if grep -q -E '^#include ?<math.h>' "$source_file" >/dev/null 2>/dev/null; then
       libmath="-lm"
     fi
   fi
 
+  # print source
   if [[ $print_source ]]; then
     cat "$source_file"
     echo
@@ -111,12 +114,15 @@ function main {
     else
       ./"$cbinary"
     fi
+    ret=$?
     rm "$cbinary"
   else
     fail "Compilation failed"
   fi
 
   rm "$source_file"
+
+  exit $ret
 }
 
 
