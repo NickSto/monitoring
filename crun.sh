@@ -92,7 +92,10 @@ function main {
   # Check source file
   libmath=""
   if [[ ! $inline ]]; then
-    check_file "$source_file"
+    if ! check_file "$source_file"; then
+      rm "$source_file"
+      exit 1;
+    fi
     # If math.h is included, -lm needs to be added to the gcc command
     if grep -q -E '^#include ?<math.h>' "$source_file" >/dev/null 2>/dev/null; then
       libmath="-lm"
@@ -132,11 +135,13 @@ function main {
 function check_file {
   csource="$1"
   if [[ ! -s "$csource" ]]; then
-    fail "$csource nonexistent or empty"
+    echo "$csource nonexistent or empty" >&2
+    return 1
   fi
   filetype=$(file -b --mime-type "$csource")
   if [[ $filetype != "text/x-c" ]]; then
-    fail '"file" reports the source file type as "'$filetype'"'
+    echo '"file" reports the source file type as "'$filetype'"' >&2
+    return 1
   fi
 }
 
