@@ -120,6 +120,7 @@ function main {
     ret=$?
     rm "$cbinary"
   else
+    rm "$source_file"
     fail "Compilation failed"
   fi
 
