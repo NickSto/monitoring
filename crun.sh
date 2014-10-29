@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-DEFAULT_INCLUDES="#include <stdio.h>
+readonly DefaultIncludes="#include <stdio.h>
 "
-C_TEMPLATE="%s
+readonly CTemplate="%s
 int main(int argc, char *argv[]) {
   %s;
   return(0);
 }"
 
-USAGE="Usage: \$ $(basename $0) [script args] source.c [program args]
+readonly Usage="Usage: \$ $(basename $0) [script args] source.c [program args]
        \$ $(basename $0) [script args] -c 'C source code' [program args]
 This will compile and execute a C file in one command, so you can make believe
 you're still in scripting-land.
@@ -26,16 +26,16 @@ afterward, so you don't overwrite any existing binary.
     Example: \"-i '<string.h>'\" will result in the line \"#include <string.h>\"
     at the top of the resulting source.
     Default headers:
-$DEFAULT_INCLUDES"
+$DefaultIncludes"
 
 function main {
 
   if [[ $# -eq 0 ]] || [[ "$1" == '-h' ]]; then
-    echo -n "$USAGE" >&2
+    echo -n "$Usage" >&2
     exit 1
   fi
 
-  include_text="$DEFAULT_INCLUDES"
+  include_text="$DefaultIncludes"
 
   # Read arguments
   # Will read arguments to the program into "prog_args" array
@@ -70,7 +70,7 @@ function main {
     fi
   done
   # You can't add #includes to source files with -i
-  if [[ ! $inline ]] && [[ "$include_text" != "$DEFAULT_INCLUDES" ]]; then
+  if [[ ! $inline ]] && [[ "$include_text" != "$DefaultIncludes" ]]; then
     fail '-i flag given without -c flag. -i only works for inline source.'
   fi
 
@@ -83,7 +83,7 @@ function main {
   # for non-inline source, I'll make a copy of the file and just work with that.
   if [[ $inline ]]; then
     source_file=$(make_filename "inline.tmp" ".c")
-    printf "$C_TEMPLATE" "$include_text" "$csource" > "$source_file"
+    printf "$CTemplate" "$include_text" "$csource" > "$source_file"
   else
     source_file=$(make_filename "$csource" ".c")
     cp "$csource" "$source_file"
