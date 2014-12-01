@@ -11,21 +11,23 @@ function main {
 Download all WTF episodes from libsyn. Can give a url like
 http://wtfpod.libsyn.com/webpage/page/17/size/10
 to just download all episodes from that page.
+Warning: If you give a url directly, it assumes the mp3s have the modern naming
+convention (starts after page ~$StopPage).
 Or give the option \"-a\" (\"after\") to start from page 1 and download all
 episodes until page $StopPage.
 Or give the option \"-b\" (\"before\") to start from page $StopPage and download
 all episodes until the end."
   fi
   if [[ "$1" == '-a' ]] || [[ "$1" == '-b' ]]; then
-    page=1
-    list_url="http://wtfpod.libsyn.com/webpage/page/$page/size/10"
-    all='true'
     if [[ "$1" == '-a' ]]; then
       after='true'
+      page=1
     else
       after=''
-      fail "Error: -b not yet implemented."
+      page=51
     fi
+    list_url="http://wtfpod.libsyn.com/webpage/page/$page/size/10"
+    all='true'
   else
     list_url="$1"
     all=''
@@ -38,7 +40,11 @@ all episodes until the end."
     for player_url in $player_urls; do
       mp3_url=$(get_mp3_url "$player_url")
       # echo "$mp3_url"
-      mp3_name=$(get_mp3_name "$mp3_url")
+      if [[ ! "$all" ]] || [[ "$after" ]]; then
+        mp3_name=$(get_mp3_name_after "$mp3_url")
+      else
+        mp3_name=$(get_mp3_name_before "$player_url")
+      fi
       echo "$mp3_name"
       download_mp3 "$mp3_url" "$mp3_name"
     done
@@ -51,7 +57,7 @@ all episodes until the end."
       page=$((page+1))
       list_url="http://wtfpod.libsyn.com/webpage/page/$page/size/10"
       # kludge to protect against downloading ones from before good filenaming
-      if [[ $page -gt $StopPage ]]; then
+      if [[ "$after" ]] && [[ $page -gt $StopPage ]]; then
         break
       fi
     else
@@ -90,16 +96,37 @@ function get_mp3_url {
 }
 
 
-function get_mp3_name {
-  url="$1"
-  title="$(echo "$url" \
-    | sed -E 's#^http:.*/_?WTF([^/]+)\.mp3$#\1#' \
+# Give the url of the mp3 itself
+function get_mp3_name_after {
+  mp3_url="$1"
+  title="$(echo "$mp3_url" \
+    | sed -E 's#^http:.*/([^/]+)$#\1#' \
+    | sed -E 's/^_?WTF(.*)\.mp3$/\1/' \
     | sed    's/_/ /g' \
     | sed -E 's/ - EPISODE ([0-9]+) / \1 - /' \
     | sed -E 's/ - EPISODE ([0-9]+)$/ \1/' \
     | sed -E 's/EPISODE ?//')"
   title="$(python -c 'import sys, titlecase; print titlecase.titlecase(sys.argv[1])' "$title")"
   echo "WTF$title.mp3"
+}
+
+
+# Give the url of the iframe player
+function get_mp3_name_before {
+  player_url="$1"
+  title="$(curl -s "$player_url" \
+    | grep -A 2 '<title>' \
+    | tr -d '\n' \
+    | sed -E 's#.*<title>[ \t]*([^:]+):.*</title>.*#\1#' \
+    | sed -E 's# ?/#,#g' \
+    | sed -E 's/[#"&;*$@!~`{}|?]//g' \
+    | sed -E 's/Episode //')"
+  if echo "$title" | grep -E '\.mp3$' >/dev/null; then
+    get_mp3_name_after "$title"
+  else
+    title="$(python -c 'import sys, titlecase; print titlecase.titlecase(sys.argv[1])' "$title")"
+    echo "WTF $title.mp3"
+  fi
 }
 
 
