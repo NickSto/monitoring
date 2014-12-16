@@ -6,6 +6,15 @@ fi
 set -ue
 
 
+USAGE="Usage: $(basename $0)
+Determine which ASN (ISP) you're connected to, using API's from external sites
+(icanhazip.com and ipinfo.io). However, by using a cache, most of the time this
+will not make any connection to an external site, or even create any network
+traffic at all. It will only do so if you move to a different local network
+(identified by your gateway's IP and MAC) or the cache entry expires (currently
+1 day expiration time)."
+
+
 DataDir="$HOME/.local/share/nbsdata"
 Silence="$DataDir/SILENCE"
 AsnCache="$DataDir/asn-cache.tsv"
@@ -16,6 +25,8 @@ TimeoutDefault=86400 # 1 day
 
 function main {
   timeout=$TimeoutDefault
+  getmyopts "$@"
+
   now=$(date +%s)
 
   read gateway_ip interface <<< $(get_lan_ip_interface)
@@ -60,6 +71,15 @@ function main {
     clean_cache $AsnMacCache $timeout
   fi
 
+}
+
+
+function getmyopts {
+  while getopts ":h" opt; do
+    case "$opt" in
+      h) fail "$USAGE";;
+    esac
+  done
 }
 
 
