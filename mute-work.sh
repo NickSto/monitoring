@@ -18,6 +18,42 @@ function work_action {
   amixer --quiet set Master toggle
 }
 
+
+# Get the script's actual directory path.
+function real_dir {
+  if readlink -f test >/dev/null 2>/dev/null; then
+    dirname $(readlink -f $0)
+  else
+    # If readlink -f doesn't work (like on BSD).
+    # Read the link destination from the output of ls -l and cd to it.
+    # Have to cd to the link's directory first, to handle relative links.
+    # Currently only works with one level of linking.
+    cd $(dirname $0)
+    script=$(basename $0)
+    link=$(ls -l $script | awk '{print $NF}')
+    cd $(dirname $link)
+    pwd
+  fi
+}
+
+
+# Return the command needed to execute a script that is either on the PATH or
+# in this script's directory.
+function get_command {
+  command="$1"
+  # Is it simply on the PATH?
+  if which $command >/dev/null 2>/dev/null; then
+    echo "$bin_path"
+  fi
+  path=$(real_dir)/$command
+  if [[ -x $path ]]; then
+    echo "$path"
+  else
+    return 1
+  fi
+}
+
+
 if [[ -e $SILENCE ]]; then
   exit
 fi
@@ -39,17 +75,9 @@ if [[ -e $STATUS_FILE ]]; then
 fi
 
 # Status unknown and it's currently work hours. Does it look like we're at work?
-#TODO: Cache public IP's by associating every combination of local IP & gateway
-#      MAC address with its corresponding public IP.
-ip=$(curl -s ipv4.icanhazip.com)
-# Cache ASN lookups to prevent exceeding ipinfo.io API limits (1000 per day)
-asn=$(awk -F '\t' '$1 == "'$ip'" {print $2}' $CACHE_FILE | head -n 1)
-if [[ ! $asn ]]; then
-  asn=$(curl -s http://ipinfo.io/$ip/org | grep -Eo '^AS[0-9]+')
-  if [[ $asn ]]; then
-    echo -e "$ip\t$asn" >> $CACHE_FILE
-  fi
-fi
+get_asn=$(get_command 'get-asn.sh')
+asn=$($get_asn)
+
 for work_asn in $WORK_ASNS; do
   if [[ $asn == $work_asn ]]; then
     work_action
