@@ -12,6 +12,41 @@ WORK_ASNS="AS3999 AS25"
 # AS3999: Penn State
 # AS25:   UC Berkeley
 
+
+function main {
+  if [[ -e $SILENCE ]]; then
+    exit
+  fi
+
+  # Not currently work hours? Exit.
+  now_hour=$(date +%H)
+  if [[ $now_hour -lt $DAY_START ]] || [[ $now_hour -ge $DAY_END ]]; then
+    exit 0
+  fi
+
+  # Check status file to know if we've already checked today.
+  today=$(date +%F)
+  if [[ -e $STATUS_FILE ]]; then
+    file_date=$(stat -c '%y' $STATUS_FILE | awk '{print $1}')
+    # If status file is present and from today, we've already checked. Exit.
+    if [[ $file_date == $today ]]; then
+      exit 0
+    fi
+  fi
+
+  # Status unknown and it's currently work hours. Does it look like we're at work?
+  get_asn=$(get_command 'get-asn.sh')
+  asn=$($get_asn)
+
+  for work_asn in $WORK_ASNS; do
+    if [[ $asn == $work_asn ]]; then
+      work_action
+      touch $STATUS_FILE
+    fi
+  done
+}
+
+
 # what to do if we're found to be at work for the first time today?
 function work_action {
   # mute sound
@@ -54,33 +89,4 @@ function get_command {
 }
 
 
-if [[ -e $SILENCE ]]; then
-  exit
-fi
-
-# Not currently work hours? Exit.
-now_hour=$(date +%H)
-if [[ $now_hour -lt $DAY_START ]] || [[ $now_hour -ge $DAY_END ]]; then
-  exit 0
-fi
-
-# Check status file to know if we've already checked today.
-today=$(date +%F)
-if [[ -e $STATUS_FILE ]]; then
-  file_date=$(stat -c '%y' $STATUS_FILE | awk '{print $1}')
-  # If status file is present and from today, we've already checked. Exit.
-  if [[ $file_date == $today ]]; then
-    exit 0
-  fi
-fi
-
-# Status unknown and it's currently work hours. Does it look like we're at work?
-get_asn=$(get_command 'get-asn.sh')
-asn=$($get_asn)
-
-for work_asn in $WORK_ASNS; do
-  if [[ $asn == $work_asn ]]; then
-    work_action
-    touch $STATUS_FILE
-  fi
-done
+main "$@"
