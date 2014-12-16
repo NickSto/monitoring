@@ -5,19 +5,30 @@ if [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
+
 DataDir="$HOME/.local/share/nbsdata"
 Silence="$DataDir/SILENCE"
 AsnCache="$DataDir/asn-cache.tsv"
 AsnMacCache="$DataDir/asn-mac-cache.tsv"
+# How long to trust cache entries (in seconds)?
+TimeoutDefault=86400 # 1 day
 
 
 function main {
+  timeout=$TimeoutDefault
+  now=$(date +%s)
+
   read gateway_ip interface <<< $(get_lan_ip_interface)
   mac=$(get_mac $gateway_ip $interface)
 
   if [[ $gateway_ip ]] && [[ $mac ]]; then
     # Look up ASN in cache file by gateway ip and mac
-    true
+    read asn timestamp <<< $(awk '$1 == "'$mac'" && $2 == "'$gateway_ip'" \
+      {print $3,$4}' $AsnMacCache | head -n 1)
+    if [[ $((now-timestamp)) -lt $timeout ]]; then
+      echo $asn
+      exit
+    fi
   fi
 
   if [[ -e $Silence ]]; then
@@ -44,10 +55,21 @@ function main {
 
   # Record the association between the gateway IP/MAC address and ASN.
   if [[ $gateway_ip ]] && [[ $mac ]]; then
-    timestamp=$(date +%s)
-    echo -e "$mac\t$gateway_ip\t$asn\t$timestamp" >> $AsnMacCache
+    echo -e "$mac\t$gateway_ip\t$asn\t$now" >> $AsnMacCache
+    # Remove stale entries from cache.
+    clean_cache $AsnMacCache $timeout
   fi
 
+}
+
+
+# Remove entries from the $AsnMacCache which are older than $timeout
+function clean_cache {
+  read cache_file timeout <<< "$@"
+  cache_file_bak="$cache_file.bak"
+  now=$(date +%s)
+  mv $cache_file $cache_file_bak
+  awk "$now - \$4 <= $timeout {print \$0}" $cache_file_bak > $cache_file
 }
 
 
