@@ -7,17 +7,16 @@ set -ue
 
 
 USAGE="Usage: $(basename $0)
-Determine which ASN (ISP) you're connected to, using API's from external sites
-(icanhazip.com and ipinfo.io). However, by using a cache, most of the time this
-will not make any connection to an external site, or even create any network
-traffic at all. It will only do so if you move to a different local network
-(identified by your gateway's IP and MAC) or the cache entry expires (currently
-1 day expiration time)."
+Determine which ASN (ISP) you're connected to, using an API from an external
+site (ipinfo.io). However, by using a cache, most of the time this will not make
+any connection to an external site, or even create any network traffic at all.
+It will only do so if you move to a different local network (identified by your
+gateway's IP and MAC) or the cache entry expires (currently 1 day expiration
+time)."
 
 
 DataDir="$HOME/.local/share/nbsdata"
 Silence="$DataDir/SILENCE"
-AsnCache="$DataDir/asn-cache.tsv"
 AsnMacCache="$DataDir/asn-mac-cache.tsv"
 # How long to trust cache entries (in seconds)?
 TimeoutDefault=86400 # 1 day
@@ -42,20 +41,17 @@ function main {
     fi
   fi
 
+  # Failure to find ASN by gateway IP and MAC address.
+  # We'll have to reach out to an outside service to get the ASN.
+
+  # Don't make the request, if SILENCE is in effect.
   if [[ -e $Silence ]]; then
     fail "Error: SILENCE file is present ($Silence). Cannot continue."
   fi
 
-  # Failure to find ASN by gateway IP and MAC address.
-  # Find the ASN using the traditional icanhazip.com -> ipinfo.io method.
-  ip=$(curl -s ipv4.icanhazip.com)
-  # Cache ASN lookups to prevent exceeding ipinfo.io API limits (1000 per day)
-  asn=$(awk -F '\t' '$1 == "'$ip'" {print $2}' $AsnCache | head -n 1)
+  # Get ASN using ipinfo.io. API limits requests to 1000 per day.
   if [[ ! $asn ]]; then
-    asn=$(curl -s http://ipinfo.io/$ip/org | grep -Eo '^AS[0-9]+')
-    if [[ $asn ]]; then
-      echo -e "$ip\t$asn" >> $AsnCache
-    fi
+    asn=$(curl -s http://ipinfo.io/org | grep -Eo '^AS[0-9]+')
   fi
 
   if [[ $asn ]]; then
