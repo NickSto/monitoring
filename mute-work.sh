@@ -51,7 +51,8 @@ function main {
 # what to do if we're found to be at work for the first time today?
 function work_action {
   # mute sound
-  amixer --quiet set Master toggle
+  # amixer --quiet set Master toggle  # old method
+  amixer --quiet -D pulse set Master toggle
 }
 
 
