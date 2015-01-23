@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 UPSTATUS="$HOME/.local/share/nbsdata/upstatus.txt"
 
+# $free: free disk space
+free=$(df -h | grep -E ' /$' | awk '{print $4}')
+
+# $temp: CPU temperature
 temp=$(sensors | grep -A 3 '^coretemp-isa-0000' | tail -n 1 | awk '{print $3}' | sed -E -e 's/^\+//' -e 's/\.[0-9]+//')
 
+# $updisp: Network connectivity monitor
 updisp=$(cat "$UPSTATUS")
 
-ping_line=$(tail -n 1 /home/me/aa/code/projects/uptest/logs/continuous.txt)
-ping=$(echo "$ping_line" | cut -f 1)
+# $ping_str: Last ping latency
+read ping ping_time rest <<< $(tail -n 1 /home/me/code/projects/uptest/logs/continuous.txt)
 # figure out if ping is old
-ping_time=$(echo "$ping_line" | cut -f 2)
 now=$(date +%s)
 thres=$((now-30))
 # if ping is old, mark it as not applicable
@@ -25,4 +29,4 @@ if [[ $updisp != '[OFFLINE]' ]] && [[ $ping_time -lt $thres ]]; then
 fi
 
 
-echo "$updisp  $ping_str  $temp"
+echo "| $free free | $updisp  $ping_str | $temp"
