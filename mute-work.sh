@@ -14,6 +14,7 @@ WORK_ASNS="AS3999 AS25"
 
 
 function main {
+  
   if [[ -e $SILENCE ]]; then
     exit
   fi
@@ -36,7 +37,7 @@ function main {
 
   # Status unknown and it's currently work hours. Does it look like we're at work?
   get_asn=$(get_command 'get-asn.sh')
-  asn=$($get_asn)
+  asn=$(bash $get_asn)
 
   for work_asn in $WORK_ASNS; do
     if [[ $asn == $work_asn ]]; then

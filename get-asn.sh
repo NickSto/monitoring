@@ -100,7 +100,7 @@ function get_lan_ip_interface {
 # Look up the MAC address matching the given IP address on the given interface.
 function get_mac {
   read ip interface <<< "$@"
-  arp -a \
+  /usr/sbin/arp -a \
     | awk '$3 == "at" && $6 == "on" && $2 == "('$ip')" && $7 == "'$interface'" {print $4}'
 }
 
