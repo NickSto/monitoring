@@ -5,13 +5,24 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -u
 
-SLEEP=5
+SleepDefault=5
+IgnoreDefault='http,https'
 
-USAGE="Usage: \$ $(basename $0)
-Monitor when IP connections are opened or closed. Checks every $SLEEP seconds. Ignores http and
-https connections. New connections are marked \">\", closed ones \"<\"."
+USAGE="Usage: \$ $(basename $0) [sleep [ports,to,ignore]]
+Monitor when IP connections are opened or closed. Checks every $SleepDefault seconds by default.
+Ignores http and https connections. New connections are marked \">\", closed ones \"<\"."
 
 function main {
+
+  sleep=$SleepDefault
+  ignore=$(echo "$IgnoreDefault" | tr ',' '|')
+  if [[ $# -gt 0 ]]; then
+    if [[ $1 == '-h' ]]; then
+      fail "$USAGE"
+    fi
+    sleep=$1
+  fi
+
 
   old=$(tempfile)
   new=$(tempfile)
@@ -19,12 +30,12 @@ function main {
   trap cleanup SIGINT SIGHUP SIGQUIT SIGKILL
 
   while true; do
-    netstat --inet -W | awk '$6 == "ESTABLISHED" && $5 !~ /:https?$/ {print $5}' > $new
+    netstat --inet -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -vE ":($ignore)$" > $new
     if ! diff $old $new; then
       echo '--------------'
     fi
     mv $new $old
-    sleep $SLEEP
+    sleep $sleep
   done
 }
 
