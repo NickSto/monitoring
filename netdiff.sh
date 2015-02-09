@@ -10,18 +10,16 @@ WatchPortsDefault=''
 WatchProgsDefault=''
 WatchProcsDefault=''
 IgnorePortsDefault='http,https'
-IgnoreProgsDefault='firefox,chrome'
+IgnoreProgsDefault=''
 IgnoreProcsDefault=''
 
 USAGE="Usage: \$ $(basename $0) [options]
 Monitor when IP connections are opened or closed. New connections are marked \"+\", closed ones \"-\".
 Options:
 -w: How long to wait between checks. Default: $SleepDefault seconds.
+-c: Processes(s) to watch exclusively. Give in a comma-separated list, like \"firefox,chrome\".
 -S: Ignore connections to these services. Give as a comma-separated list. You must use either the
     port number or the service name according to what netstat uses. Default: \"$IgnorePortsDefault\"."
-
-#TODO: use --program to filter by program/process, implement -c, -p, -C, and -P.
-#TODO: implement -s (watch_ports).
 
 function main {
 
@@ -50,8 +48,17 @@ function main {
   touch $old
   trap cleanup SIGINT SIGHUP SIGQUIT SIGKILL
 
+  #TODO: Finish implementing watches and ignores
+  #TODO: Inclulde --program in every output
   while true; do
-    netstat --inet -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -vE ":($ignore_ports)$" > $new
+    if [[ $watch_progs ]]; then
+      netstat --inet --program -W 2>/dev/null | \
+        awk -v OFS='\t' '$6 == "ESTABLISHED" {split($7,prog,"/"); if (prog[2] ~ /^('$watch_progs')$/) {print prog[2], $5}}' > $new
+    elif [[ $watch_ports ]]; then
+      netstat --inet -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -E ":($watch_ports)$" > $new
+    else
+      netstat --inet -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -vE ":($ignore_ports)$" > $new
+    fi
     diff=$(diff $old $new | sed -En -e 's/^>/+/p' -e 's/^</-/p')
     if [[ "$diff" ]]; then
       echo "$diff"
