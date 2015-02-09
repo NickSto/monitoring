@@ -9,18 +9,23 @@ SleepDefault=5
 IgnoreDefault='http,https'
 
 USAGE="Usage: \$ $(basename $0) [sleep [ports,to,ignore]]
-Monitor when IP connections are opened or closed. Checks every $SleepDefault seconds by default.
-Ignores http and https connections. New connections are marked \">\", closed ones \"<\"."
+Monitor when IP connections are opened or closed. New connections are marked '>', closed ones '<'.
+Checks every $SleepDefault seconds by default. Ignores connections to these ports by default: \"$IgnoreDefault\".
+To change ignored ports, give a different comma-separated list. Whether to use the port numbers or
+service names depends on whether netstat does."
 
 function main {
 
   sleep=$SleepDefault
   ignore=$(echo "$IgnoreDefault" | tr ',' '|')
-  if [[ $# -gt 0 ]]; then
+  if [[ $# -ge 1 ]]; then
     if [[ $1 == '-h' ]]; then
       fail "$USAGE"
     fi
     sleep=$1
+  fi
+  if [[ $# -ge 2 ]]; then
+    ignore=$(echo "$2" | tr ',' '|')
   fi
 
 
