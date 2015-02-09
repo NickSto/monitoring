@@ -33,12 +33,12 @@ function main {
   while getopts ":w:s:c:p:S:C:P:h" opt; do
     case "$opt" in
       w) sleep="$OPTARG";;
-      s) watch_ports="$OPTARG";;
-      c) watch_progs="$OPTARG";;
-      p) watch_procs="$OPTARG";;
-      S) ignore_ports="$OPTARG";;
-      C) ignore_progs="$OPTARG";;
-      P) ignore_procs="$OPTARG";;
+      s) watch_ports="$(echo "$OPTARG" | tr ',' '|')";;
+      c) watch_progs="$(echo "$OPTARG" | tr ',' '|')";;
+      p) watch_procs="$(echo "$OPTARG" | tr ',' '|')";;
+      S) ignore_ports="$(echo "$OPTARG" | tr ',' '|')";;
+      C) ignore_progs="$(echo "$OPTARG" | tr ',' '|')";;
+      P) ignore_procs="$(echo "$OPTARG" | tr ',' '|')";;
       h) fail "$USAGE";;
     esac
   done
