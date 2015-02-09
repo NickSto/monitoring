@@ -6,28 +6,44 @@ fi
 set -u
 
 SleepDefault=5
-IgnoreDefault='http,https'
+WatchPortsDefault=''
+WatchProgsDefault=''
+WatchProcsDefault=''
+IgnorePortsDefault='http,https'
+IgnoreProgsDefault='firefox,chrome'
+IgnoreProcsDefault=''
 
-USAGE="Usage: \$ $(basename $0) [sleep [ports,to,ignore]]
-Monitor when IP connections are opened or closed. New connections are marked '>', closed ones '<'.
-Checks every $SleepDefault seconds by default. Ignores connections to these ports by default: \"$IgnoreDefault\".
-To change ignored ports, give a different comma-separated list. Whether to use the port numbers or
-service names depends on whether netstat does."
+USAGE="Usage: \$ $(basename $0) [options]
+Monitor when IP connections are opened or closed. New connections are marked \"+\", closed ones \"-\".
+Options:
+-w: How long to wait between checks. Default: $SleepDefault seconds.
+-S: Ignore connections to these services. Give as a comma-separated list. You must use either the
+    port number or the service name according to what netstat uses. Default: \"$IgnorePortsDefault\"."
+
+#TODO: use --program to filter by program/process, implement -c, -p, -C, and -P.
+#TODO: implement -s (watch_ports).
 
 function main {
 
-  sleep=$SleepDefault
-  ignore=$(echo "$IgnoreDefault" | tr ',' '|')
-  if [[ $# -ge 1 ]]; then
-    if [[ $1 == '-h' ]]; then
-      fail "$USAGE"
-    fi
-    sleep=$1
-  fi
-  if [[ $# -ge 2 ]]; then
-    ignore=$(echo "$2" | tr ',' '|')
-  fi
-
+  sleep="$SleepDefault"
+  watch_ports=$(echo "$WatchPortsDefault" | tr ',' '|')
+  watch_progs=$(echo "$WatchProgsDefault" | tr ',' '|')
+  watch_procs=$(echo "$WatchProcsDefault" | tr ',' '|')
+  ignore_ports=$(echo "$IgnorePortsDefault" | tr ',' '|')
+  ignore_progs=$(echo "$IgnoreProgsDefault" | tr ',' '|')
+  ignore_procs=$(echo "$IgnoreProcsDefault" | tr ',' '|')
+  while getopts ":w:s:c:p:S:C:P:h" opt; do
+    case "$opt" in
+      w) sleep="$OPTARG";;
+      s) watch_ports="$OPTARG";;
+      c) watch_progs="$OPTARG";;
+      p) watch_procs="$OPTARG";;
+      S) ignore_ports="$OPTARG";;
+      C) ignore_progs="$OPTARG";;
+      P) ignore_procs="$OPTARG";;
+      h) fail "$USAGE";;
+    esac
+  done
 
   old=$(tempfile)
   new=$(tempfile)
@@ -35,8 +51,10 @@ function main {
   trap cleanup SIGINT SIGHUP SIGQUIT SIGKILL
 
   while true; do
-    netstat --inet -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -vE ":($ignore)$" > $new
-    if ! diff $old $new; then
+    netstat --inet -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -vE ":($ignore_ports)$" > $new
+    diff=$(diff $old $new | sed -En -e 's/^>/+/p' -e 's/^</-/p')
+    if [[ "$diff" ]]; then
+      echo "$diff"
       echo '--------------'
     fi
     mv $new $old
