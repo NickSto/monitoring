@@ -52,12 +52,12 @@ function main {
   #TODO: Inclulde --program in every output
   while true; do
     if [[ $watch_progs ]]; then
-      netstat --inet --program -W 2>/dev/null | \
+      netstat -A inet,inet6 --program -W 2>/dev/null | \
         awk -v OFS='\t' '$6 == "ESTABLISHED" {split($7,prog,"/"); if (prog[2] ~ /^('$watch_progs')$/) {print prog[2], $5}}' > $new
     elif [[ $watch_ports ]]; then
-      netstat --inet -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -E ":($watch_ports)$" > $new
+      netstat -A inet,inet6 -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -E ":($watch_ports)$" > $new
     else
-      netstat --inet -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -vE ":($ignore_ports)$" > $new
+      netstat -A inet,inet6 -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -vE ":($ignore_ports)$" > $new
     fi
     diff=$(diff $old $new | sed -En -e 's/^>/+/p' -e 's/^</-/p')
     if [[ "$diff" ]]; then
