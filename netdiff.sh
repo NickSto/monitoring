@@ -17,28 +17,38 @@ USAGE="Usage: \$ $(basename $0) [options]
 Monitor when IP connections are opened or closed. New connections are marked \"+\", closed ones \"-\".
 Options:
 -w: How long to wait between checks. Default: $SleepDefault seconds.
--c: Processes(s) to watch exclusively. Give in a comma-separated list, like \"firefox,chrome\".
--S: Ignore connections to these services. Give as a comma-separated list. You must use either the
-    port number or the service name according to what netstat uses. Default: \"$IgnorePortsDefault\"."
+-s: Port(s) to watch exclusively. Give in a comma-separated list, like \"http,3785\". You must use
+    either the port number or the service name according to what netstat uses.
+    Default: \"$IgnorePortsDefault\".
+-c: Processes name(s) to watch exclusively.
+-p: Process id(s) to watch exclusively.
+-S: Port(s) to ignore. Give as a comma-separated list.
+-C: Process name(s) to ignore.
+-P: Process id(s) to ignore."
 
 function main {
 
+  dir=$(real_dir)
+  if ! [[ -s $dir/netdiff.awk ]]; then
+    fail "Error: cannot locate netdiff.awk."
+  fi
+
   sleep="$SleepDefault"
-  watch_ports=$(echo "$WatchPortsDefault" | tr ',' '|')
-  watch_progs=$(echo "$WatchProgsDefault" | tr ',' '|')
-  watch_procs=$(echo "$WatchProcsDefault" | tr ',' '|')
-  ignore_ports=$(echo "$IgnorePortsDefault" | tr ',' '|')
-  ignore_progs=$(echo "$IgnoreProgsDefault" | tr ',' '|')
-  ignore_procs=$(echo "$IgnoreProcsDefault" | tr ',' '|')
+  watch_ports="$WatchPortsDefault"
+  watch_progs="$WatchProgsDefault"
+  watch_procs="$WatchProcsDefault"
+  ignore_ports="$IgnorePortsDefault"
+  ignore_progs="$IgnoreProgsDefault"
+  ignore_procs="$IgnoreProcsDefault"
   while getopts ":w:s:c:p:S:C:P:h" opt; do
     case "$opt" in
       w) sleep="$OPTARG";;
-      s) watch_ports="$(echo "$OPTARG" | tr ',' '|')";;
-      c) watch_progs="$(echo "$OPTARG" | tr ',' '|')";;
-      p) watch_procs="$(echo "$OPTARG" | tr ',' '|')";;
-      S) ignore_ports="$(echo "$OPTARG" | tr ',' '|')";;
-      C) ignore_progs="$(echo "$OPTARG" | tr ',' '|')";;
-      P) ignore_procs="$(echo "$OPTARG" | tr ',' '|')";;
+      s) watch_ports="$OPTARG";;
+      c) watch_progs="$OPTARG";;
+      p) watch_procs="$OPTARG";;
+      S) ignore_ports="$OPTARG";;
+      C) ignore_progs="$OPTARG";;
+      P) ignore_procs="$OPTARG";;
       h) fail "$USAGE";;
     esac
   done
@@ -48,17 +58,12 @@ function main {
   touch $old
   trap cleanup SIGINT SIGHUP SIGQUIT SIGKILL
 
-  #TODO: Finish implementing watches and ignores
-  #TODO: Inclulde --program in every output
   while true; do
-    if [[ $watch_progs ]]; then
-      netstat -A inet,inet6 --program -W 2>/dev/null | \
-        awk -v OFS='\t' '$6 == "ESTABLISHED" {split($7,prog,"/"); if (prog[2] ~ /^('$watch_progs')$/) {print prog[2], $5}}' > $new
-    elif [[ $watch_ports ]]; then
-      netstat -A inet,inet6 -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -E ":($watch_ports)$" > $new
-    else
-      netstat -A inet,inet6 -W | awk '$6 == "ESTABLISHED" {print $5}' | grep -vE ":($ignore_ports)$" > $new
-    fi
+    netstat -A inet,inet6 --program -W 2>/dev/null | \
+        awk -f $dir/netdiff.awk -v watch_ports=$watch_ports \
+        -v watch_progs=$watch_progs -v watch_procs=$watch_procs \
+        -v ignore_ports=$ignore_ports -v ignore_progs=$ignore_progs \
+        -v ignore_procs=$ignore_procs > $new
     diff=$(diff $old $new | sed -En -e 's/^>/+/p' -e 's/^</-/p')
     if [[ "$diff" ]]; then
       echo "$diff"
@@ -67,6 +72,23 @@ function main {
     mv $new $old
     sleep $sleep
   done
+}
+
+
+function real_dir {
+  if readlink -f test >/dev/null 2>/dev/null; then
+    dirname $(readlink -f $0)
+  else
+    # If readlink -f doesn't work (like on BSD).
+    # Read the link destination from the output of ls -l and cd to it.
+    # Have to cd to the link's directory first, to handle relative links.
+    # Currently only works with one level of linking.
+    cd $(dirname $0)
+    script=$(basename $0)
+    link=$(ls -l $script | awk '{print $NF}')
+    cd $(dirname $link)
+    pwd
+  fi
 }
 
 
