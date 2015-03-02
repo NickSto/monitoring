@@ -9,7 +9,7 @@ SleepDefault=5
 WatchPortsDefault=''
 WatchProgsDefault=''
 WatchProcsDefault=''
-IgnorePortsDefault='http,https'
+IgnorePortsDefault=''
 IgnoreProgsDefault=''
 IgnoreProcsDefault=''
 
@@ -58,12 +58,14 @@ function main {
   touch $old
   trap cleanup SIGINT SIGHUP SIGQUIT SIGKILL
 
+  echo -e '  program\tpid\tport\tdestination'
+
   while true; do
     netstat -A inet,inet6 --program -W 2>/dev/null | \
         awk -f $dir/netdiff.awk -v watch_ports=$watch_ports \
         -v watch_progs=$watch_progs -v watch_procs=$watch_procs \
         -v ignore_ports=$ignore_ports -v ignore_progs=$ignore_progs \
-        -v ignore_procs=$ignore_procs > $new
+        -v ignore_procs=$ignore_procs | sort > $new
     diff=$(diff $old $new | sed -En -e 's/^>/+/p' -e 's/^</-/p')
     if [[ "$diff" ]]; then
       echo "$diff"
