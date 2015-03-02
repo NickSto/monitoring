@@ -3,11 +3,12 @@ set -ue
 
 WAIT=5m
 #POD_DIR="$HOME/backuphide/podcasts"
-POD_DIR="$HOME/Dropbox/nickextra"
-MAX_RUNTIME=$((24*60*60)) # seconds
+POD_DIR="$HOME/Dropbox/nickextra/sn"
+MAX_RUNTIME=$((48*60*60)) # seconds
 SILENCE="$HOME/.local/share/nbsdata/SILENCE"
 USAGE="USAGE: \$ $(basename $0) [episode number]"
 
+echo $(date)": sn-dl.sh running in HOME=$HOME" >> /home/me/.local/share/nbsdata/cron-stderr.log
 
 function fail {
   echo "$1" >&2
