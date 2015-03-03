@@ -20,7 +20,7 @@ function main {
   fi
 
   # Not currently work hours? Exit.
-  now_hour=$(date +%H)
+  now_hour=$(date +%k)
   if [[ $now_hour -lt $DAY_START ]] || [[ $now_hour -ge $DAY_END ]]; then
     exit 0
   fi
