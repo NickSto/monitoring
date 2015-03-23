@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-UPSTATUS="$HOME/.local/share/nbsdata/upstatus.txt"
+DataDir="$HOME/.local/share/nbsdata"
 
 # $free: free disk space
 free=$(df -h | grep -E ' /$' | awk '{print $4}')
@@ -8,10 +8,11 @@ free=$(df -h | grep -E ' /$' | awk '{print $4}')
 temp=$(sensors | grep -A 3 '^coretemp-isa-0000' | tail -n 1 | awk '{print $3}' | sed -E -e 's/^\+//' -e 's/\.[0-9]+//')
 
 # $updisp: Network connectivity monitor
-updisp=$(cat "$UPSTATUS")
+updisp=$(cat "$DataDir/upstatus.txt")
 
 # $ping_str: Last ping latency
-read ping ping_time rest <<< $(tail -n 1 /home/me/code/projects/uptest/logs/continuous.txt)
+logfile=$(grep -E ^logfile "$DataDir/upmonitor.cfg" | sed -E 's/^logfile\s*=\s*//')
+read ping ping_time rest <<< $(tail -n 1 "$logfile")
 # figure out if ping is old
 now=$(date +%s)
 thres=$((now-30))
@@ -29,4 +30,4 @@ if [[ $updisp != '[OFFLINE]' ]] && [[ $ping_time -lt $thres ]]; then
 fi
 
 
-echo "| $free free | $updisp  $ping_str | $temp"
+echo "[ $free free ]$updisp[ $ping_str ][ $temp ]"
