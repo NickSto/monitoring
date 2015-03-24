@@ -37,31 +37,41 @@ function main {
   fi
 
   if [[ $action == "add" ]]; then
-    ip=$(dig +short $domain | tail -n 1)
-    if [[ ! $ip ]]; then
-      fail "Error: DNS lookup for $domain failed."
-    fi
-    if grep -q "^address=/$domain/" "$ConfigFile"; then
-      fail "Error: $domain already in $ConfigFile. Use rm first."
-    fi
-    echo "address=/$domain/$ip" | tee -a "$ConfigFile"
-    service dnsmasq restart
+    add "$domain"
   elif [[ $action == "rm" ]] || [[ $action == "remove" ]]; then
-    if grep -q "^address=/$domain/" "$ConfigFile"; then
-      echo "removing $domain..."
-    else
-      fail "$domain not in $ConfigFile"
-    fi
-    tempfile=$(tempfile)
-    #TODO: keep "." in domain names being interpreted as regex wildcard
-    grep -v "^address=/$domain/" "$ConfigFile" > $tempfile
-    chmod 0644 $tempfile
-    mv $tempfile "$ConfigFile" || rm $tempfile
-    service dnsmasq restart
+    rm "$domain"
   else
     fail "Error: Unrecognized command \"$1\"."
   fi
 
+}
+
+function add {
+  domain="$1"
+  ip=$(dig +short $domain | tail -n 1)
+  if ! [[ $ip =~ ^[0-9\.]+$ ]]; then
+    fail "Error: DNS lookup for $domain failed."
+  fi
+  if grep -q "^address=/$domain/" "$ConfigFile"; then
+    fail "Error: $domain already in $ConfigFile. Use rm first."
+  fi
+  echo "address=/$domain/$ip" | tee -a "$ConfigFile"
+  service dnsmasq restart
+}
+
+function rm {
+  domain="$1"
+  if grep -q "^address=/$domain/" "$ConfigFile"; then
+    echo "removing $domain..."
+  else
+    fail "$domain not in $ConfigFile"
+  fi
+  tempfile=$(tempfile)
+  #TODO: keep "." in domain names being interpreted as regex wildcard
+  grep -v "^address=/$domain/" "$ConfigFile" > $tempfile
+  chmod 0644 $tempfile
+  mv $tempfile "$ConfigFile" || rm $tempfile
+  service dnsmasq restart
 }
 
 function fail {
