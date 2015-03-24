@@ -48,18 +48,19 @@ function main {
     fi
   done
 
+  if ! [[ $remove_todo ]]; then
+    echo "No old releases found!"
+    exit 0
+  fi
+
   echo "Packages to be removed:"
   for package in $remove_todo; do
     echo -e "\t$package"
   done
-  #TODO: Add -y option to skip the prompt.
-  read -p "Proceed? (y/n): " answer
-  answer=$(echo "$answer" | tr [:upper:] [:lower:])
-  if ! [[ $answer == 'y' ]] && ! [[ $answer == 'yes' ]]; then
-    fail "Removal aborted."
-  fi
 
-  # apt-get purge instead?
+  # Do the actual uninstallation.
+  #TODO: Add -y option to skip the prompt.
+  #TODO: apt-get purge instead?
   apt-get remove $remove_todo
 }
 
