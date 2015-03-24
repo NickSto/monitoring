@@ -8,7 +8,7 @@ set -ue
 ConfigFile="/etc/dnsmasq.conf"
 
 command=$(basename $0)
-USAGE="Usage: \$ sudo $command [add|rm] example.com
+USAGE="Usage: \$ sudo $command [add|rm|toggle] example.com
 \"add\" does a DNS lookup for the given domain to get its IP address, then adds
 a line like \"address=/example.com/10.11.12.13\" to the dnsmasq config file
 \"$ConfigFile\" so lookups for that domain (and all subdomains) are done
@@ -18,28 +18,31 @@ function main {
   
   if [[ $# -lt 1 ]] || [[ $1 == '-h' ]]; then
     fail "$USAGE"
-  fi
-
-  if [[ ! -f "$ConfigFile" ]]; then
-    fail "Error: Missing config file \"$ConfigFile\"."
-  fi
-
-  if [[ $EUID != 0 ]]; then
-    fail "Error: Must run as root"
-  fi
-
-  if [[ $# == 1 ]]; then
-    action="add"
+  elif [[ $# == 1 ]]; then
+    action="toggle"
     domain="$1"
   else
     action="$1"
     domain="$2"
   fi
 
+  if [[ ! -f "$ConfigFile" ]]; then
+    fail "Error: Missing config file \"$ConfigFile\"."
+  fi
+  if [[ $EUID != 0 ]]; then
+    fail "Error: Must run as root"
+  fi
+
   if [[ $action == "add" ]]; then
     add "$domain"
   elif [[ $action == "rm" ]] || [[ $action == "remove" ]]; then
     rm "$domain"
+  elif [[ $action == "toggle" ]]; then
+    if grep -q "^address=/$domain/" "$ConfigFile"; then
+      rm "$domain"
+    else
+      add "$domain"
+    fi
   else
     fail "Error: Unrecognized command \"$1\"."
   fi
@@ -55,6 +58,7 @@ function add {
   if grep -q "^address=/$domain/" "$ConfigFile"; then
     fail "Error: $domain already in $ConfigFile. Use rm first."
   fi
+  echo "adding $domain..."
   echo "address=/$domain/$ip" | tee -a "$ConfigFile"
   service dnsmasq restart
 }
