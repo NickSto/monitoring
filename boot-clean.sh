@@ -11,6 +11,15 @@ Note: Requires a 3.x-generic kernel."
 
 function main {
 
+  y=''
+  if [[ $# -gt 0 ]]; then
+    if [[ $1 == '-h' ]]; then
+      fail "$USAGE"
+    elif [[ $1 == '-f' ]]; then
+      y='-y'
+    fi
+  fi
+
   if [[ $EUID != 0 ]]; then
     fail "Error: Must run with root permissions."
   fi
@@ -61,7 +70,7 @@ function main {
   # Do the actual uninstallation.
   #TODO: Add -y option to skip the prompt.
   #TODO: apt-get purge instead?
-  apt-get remove $remove_todo
+  apt-get remove $y $remove_todo
 }
 
 function fail {
