@@ -23,6 +23,7 @@ TimeoutDefault=86400 # 1 day
 
 
 function main {
+  asn=''
   timeout=$TimeoutDefault
   getmyopts "$@"
 
