@@ -24,19 +24,39 @@ Line1Pattern='^Physical id 0:'
 Line2Pattern='^Core 0:'
 Line3Pattern='^Core 1:'
 TempRegex='s/^.*:\s+[+-]([0-9]+)\.[0-9]+.C\s+\(.*$/\1/'
-LogFile="$HOME/.local/share/nbsdata/temp.log"
+LogFileDefault="$HOME/.local/share/nbsdata/temp.log"
 
+Usage="Usage: $0 [pause_seconds [log_file]]
+Default time between checks (pause_seconds): $PauseDefault
+If log_file is not given, will print to stdout only.
+If log_file is given, will print instead to log_file.
+If \"-l\" is given as log_file, will use default log_file:
+$LogFileDefault"
+
+# Read arguments.
 pause=$PauseDefault
-log=''
+log_file=''
 if [[ $# -gt 0 ]]; then
-  pause=$1
-  if [[ $pause == '-f' ]]; then
-    log='yes'
-    pause=$PauseDefault
-    if [[ $# -gt 1 ]]; then
-      pause=$2
-    fi
+  if [[ $1 == '-h' ]]; then
+    echo "$Usage" >&2
+    exit 1
   fi
+  pause=$1
+fi
+if [[ $# -gt 1 ]]; then
+  if [[ $2 == '-l' ]]; then
+    log_file="$LogFileDefault"
+  else
+    log_file="$2"
+  fi
+fi
+if ! echo "$pause" | grep -E '^[0-9]+$' >/dev/null 2>/dev/null; then
+  echo "Error: first argument (pause seconds) must be an integer." >&2
+  exit 1
+fi
+if ! [[ -d $(dirname "$log_file") ]]; then
+  echo "Error: log file parent directory nonexistent: "$(dirname "$log_file") >&2
+  exit 1
 fi
 
 # Print an initial string of dots.
@@ -45,13 +65,13 @@ fi
 pause_str=''
 pause_ctr=$pause
 while [[ $pause_ctr -gt 0 ]]; do
-  if ! [[ $log ]]; then
+  if ! [[ "$log_file" ]]; then
     echo -n '.' 1>&2
   fi
   pause_str=$pause_str'p '
   pause_ctr=$((pause_ctr-1))
 done
-if ! [[ $log ]]; then
+if ! [[ "$log_file" ]]; then
   echo -en '\t' 1>&2
 fi
 
@@ -62,21 +82,21 @@ while true; do
   temp2=$(sensors | grep "$Line2Pattern" | sed -E "$TempRegex")
   temp3=$(sensors | grep "$Line3Pattern" | sed -E "$TempRegex")
 
-  if [[ $log ]]; then
-    echo -en "$temp1\t$temp2\t$temp3\t" >> $LogFile
-    date +%s >> $LogFile
+  if [[ "$log_file" ]]; then
+    echo -en "$temp1\t$temp2\t$temp3\t" >> "$log_file"
+    date +%s >> "$log_file"
   else
     echo -en "$temp1°C\t$temp2°C\t$temp3°C\t"
     date +%s
   fi
 
   for i in $pause_str; do
-    if ! [[ $log ]]; then
+    if ! [[ "$log_file" ]]; then
       echo -n '.' 1>&2
     fi
     sleep 1
   done
-  if ! [[ $log ]]; then
+  if ! [[ "$log_file" ]]; then
     echo -en '\t' 1>&2
   fi
 
