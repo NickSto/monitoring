@@ -1,6 +1,45 @@
 #!/usr/bin/env bash
 DataDir="$HOME/.local/share/nbsdata"
 
+function human_time {
+  total_sec=$1
+  sec=$((total_sec % 60))
+  total_min=$((total_sec/60))
+  min=$((total_min % 60))
+  total_hr=$((total_min/60))
+  hr=$((total_hr % 24))
+  days=$((total_hr/24))
+  if [[ $days == 1 ]]; then
+    days_str='1 day '
+  else
+    days_str="$days days "
+  fi
+  hr_str="$hr:"
+  min_str="$min:"
+  sec_str=$sec
+  if [[ $min -lt 10 ]] && [[ $total_min -ge 60 ]]; then
+    min_str="0$min:"
+  fi
+  if [[ $sec -lt 10 ]] && [[ $total_sec -ge 60 ]]; then
+    sec_str="0$sec"
+  elif [[ $total_sec -lt 60 ]]; then
+    sec_str="${sec}s"
+  fi
+  if [[ $days == 0 ]]; then
+    days_str=''
+    if [[ $hr == 0 ]]; then
+      hr_str=''
+      if [[ $min == 0 ]]; then
+        min_str=''
+        if [[ $sec == 0 ]]; then
+          sec_str='0s'
+        fi
+      fi
+    fi
+  fi
+  echo "$days_str$hr_str$min_str$sec_str"
+}
+
 # $free: free disk space
 free=$(df -h | grep -E ' /$' | awk '{print $4}')
 
@@ -25,10 +64,11 @@ fi
 if [[ $ping_time ]]; then
   now=$(date +%s)
   age=$((now - ping_time))
+  age_str=$(human_time $age)
   if [[ $age -lt 300 ]];  then
-    ping_str="$ping_str / ${age}s ago"
+    ping_str="$ping_str / $age_str ago"
   else
-    ping_str="N/A ms / ${age}s ago"
+    ping_str="N/A ms / $age_str ago"
   fi
 else
   ping_str="no file"
