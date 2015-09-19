@@ -6,40 +6,67 @@ fi
 set -u
 
 PauseDefault=5
-Usage="Usage: \$ $(basename $0) 'command to check' [goal] [pause]
+Usage="Usage: \$ $(basename $0) [options] 'command to check' [goal]
 If a \"goal\" is not given, it is assumed to be 0.
-\"pause\" is in minutes."
+-p: minutes to wait between checks (${PauseDefault} min by default)
+-s: the starting number, if continuing from a previous run.
+-t: the starting time, if continuing from a previous run."
 
 function main {
 
-  # Process arguments
-  if [[ $# -lt 1 ]] || [[ $1 == '-h' ]]; then
+  # get options
+  pause="$PauseDefault"
+  start=''
+  start_time=''
+  while getopts ":p:s:t:h" opt; do
+    case "$opt" in
+      p) pause="$OPTARG";;
+      s) start="$OPTARG";;
+      t) start_time="$OPTARG";;
+      h) fail "$Usage";;
+    esac
+  done
+
+  # get positional arguments
+  narg=$OPTIND
+  while [[ $narg -le $# ]]; do
+    arg=${@:$narg:1}
+    if [[ ${arg:0:1} == '-' ]]; then
+      fail "Error: options like $arg must come before positional arguments."
+    fi
+    narg=$((narg+1))
+  done
+  positionals=$((narg-OPTIND))
+  if [[ $positionals -lt 1 ]]; then
     fail "$Usage"
   fi
-  # $command
-  command="$1"
-  # $goal
+  command="${@:$OPTIND:1}"
   goal=0
-  if [[ $# -ge 2 ]]; then
-    goal=$2
-    if ! isint "$goal"; then
-      fail "Error: goal \"$goal\" is not an integer."
-    fi
+  if [[ $positionals -ge 2 ]]; then
+    goal="${@:$OPTIND+1:1}"
   fi
-  # $pause
-  pause=$PauseDefault
-  if [[ $# -ge 3 ]]; then
-    pause="$3"
-    if ! isint "$pause"; then
-      fail "Error: pause \"$pause\" is not an integer."
-    fi
+
+  # Check arguments
+  if ! isint "$goal"; then
+    fail "Error: goal \"$goal\" is not an integer."
+  fi
+  if ! isint "$pause"; then
+    fail "Error: -p pause \"$pause\" is not an integer."
+  fi
+  if [[ $start ]] && ! isint "$start"; then
+    fail "Error: -s start \"$start\" is not an integer."
+  fi
+  if [[ $start_time ]] && ! isint "$start_time"; then
+    fail "Error: -t time \"$start_time\" is not an integer."
   fi
 
   # Check initial state.
-  start=$($command)
-  start_time=$(date +%s)
-  if ! isint "$start"; then
-    fail "Error: command '$command' failed or did not output an integer."
+  if ! ([[ $start ]] && [[ $start_time ]]); then
+    start=$($command)
+    start_time=$(date +%s)
+    if ! isint "$start"; then
+      fail "Error: command '$command' failed or did not output an integer."
+    fi
   fi
   if [[ $start -gt $goal ]]; then
     countdown='true'
