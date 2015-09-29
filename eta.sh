@@ -73,7 +73,7 @@ function main {
   else
     countdown=''
   fi
-  echo "Initial: $start | Goal: $goal | Time: $start_time"
+  echo "Initial time: $start_time | Initial count: $start (goal: $goal)"
 
   sleep 15
   if [[ $countdown ]]; then
@@ -91,31 +91,41 @@ function main {
     else
       if [[ $countdown ]]; then
         progress=$((start-current))
+        togo=$((current-goal))
       else
         progress=$((current-start))
+        togo=$((goal-current))
       fi
       per_sec=$(calc "$progress/($current_time-$start_time)")
-      eta_sec=$(calc "($current-$goal)/$per_sec")
-      display $eta_sec $current
+      sec_togo=$(calc "$togo/$per_sec")
+      display $sec_togo $current
     fi
     sleep "$pause"m
   done
 }
 
 function display {
-  read eta_sec current <<< $@
+  read sec_togo current <<< $@
   # Keep 1 decimal point of precision, except for seconds, where we drop all decimals.
-  eta_sec=$(echo "$eta_sec" | sed -E 's/\..*$//')
-  eta_min=$(calc $eta_sec/60 | sed -E 's/\.([0-9]).*$/.\1/')
-  eta_hr=$(calc $eta_min/60 | sed -E 's/\.([0-9]).*$/.\1/')
-  eta=$(date -d "now + $eta_sec seconds")
-  now=$(date)
+  local sec_togo=$(echo "$sec_togo" | sed -E 's/\..*$//')
+  local min_togo=$(calc $sec_togo/60 | sed -E 's/\.([0-9]).*$/.\1/')
+  local hr_togo=$(calc $min_togo/60 | sed -E 's/\.([0-9]).*$/.\1/')
+  local eta=$(date -d "now + $sec_togo seconds")
+  local now=$(date)
+  # Show date if the ETA isn't on the same day.
   if [[ ${eta:0:10} == ${now:0:10} ]]; then
     eta=${eta:11:8}
   else
     eta=${eta:0:19}
   fi
-  echo "Current: $current | ETA: $eta ($eta_hr hours / $eta_min min / $eta_sec sec)"
+  if [[ $(calc "int($hr_togo)") -gt 1 ]]; then
+    local togo="$hr_togo hours"
+  elif [[ $(calc "int($min_togo)") -gt 1 ]]; then
+    local togo="$min_togo min"
+  else
+    local togo="$sec_togo sec"
+  fi
+  echo "Current: $current | ETA: $eta ($togo)"
 }
 
 function calc {
