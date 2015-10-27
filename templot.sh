@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -ue
 POINTS_DEFAULT=250
-STATE_DIR=$HOME/.local/share/nbsdata
+LOG_FILE=$HOME/aa/misc/computerthings/logs/temp.log
 PLOT_SCRIPT=$HOME/aa/code/python/single/scatterplot.py
 
 plot_script=$(which scatterplot.py)
@@ -15,4 +15,4 @@ else
   points=$1
 fi
 
-tail -n $points $STATE_DIR/temp.log | $plot_script -x 4 -y 1
+tail -n $points $LOG_FILE | $plot_script -x 4 -y 1
