@@ -2,7 +2,7 @@
 set -ue
 
 TEMPS="/home/me/.mymisc/temp.log"
-DATA="/home/me/.mymisc/templot.tmp"
+DATA="/tmp/templot-a63e7e2.tmp"
 IMAGE="/tmp/rplot-temp-a63e7e2.png"
 PTS_DEFAULT=250
 
