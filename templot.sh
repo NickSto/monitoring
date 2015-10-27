@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -ue
 POINTS_DEFAULT=250
-STATE_DIR=$HOME/.nbsstate
+STATE_DIR=$HOME/.local/share/nbsdata
 PLOT_SCRIPT=$HOME/aa/code/python/single/scatterplot.py
 
 if [[ $# -lt 1 ]]; then
