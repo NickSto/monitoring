@@ -1,23 +1,13 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -ue
+POINTS_DEFAULT=250
+STATE_DIR=$HOME/.nbsstate
+PLOT_SCRIPT=$HOME/aa/code/python/single/scatterplot.py
 
-TEMPS="/home/me/.local/share/nbsdata/temp.log"
-PTS_DEFAULT=250
-#DATA="/tmp/templot-a63e7e2.tmp"
-#IMAGE="/tmp/rplot-temp-a63e7e2.png"
-datafile=$(mktemp)
-imgfile=$(mktemp)
+if [[ $# -lt 1 ]]; then
+  points=$POINTS_DEFAULT
+else
+  points=$1
+fi
 
-R_SCRIPT='temps = read.table("'$datafile'");
-png(filename="'$imgfile'");
-plot(temps[,4],temps[,1]);
-dev.off()'
-
-pts=${1:-$PTS_DEFAULT}
-echo "Showing $pts timepoints"
-
-tail -n $pts $TEMPS | sed -r 's/[^0-9\t]//g' > $datafile
-
-r -e "$R_SCRIPT"
-
-(eog $imgfile 2>/dev/null; rm $imgfile; rm $datafile) &
+tail -n $points $STATE_DIR/temp.log | $PLOT_SCRIPT -x 4 -y 1
