@@ -31,6 +31,9 @@ function main {
     echo "Kernel currently in use is $current"
   fi
 
+  #TODO: Just find and remove the linux-image-* and linux-headers-* packages and then autoremove to
+  #      clean up the rest?
+
   # Turn current kernel version number into regex for matching packages for the same release.
   # Turns "3.16.0-46-generic" into "^linux-.*-3\.16\.0-46(-generic|$)".
   exact_regex=$(echo "$current" \
