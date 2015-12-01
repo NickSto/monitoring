@@ -65,7 +65,8 @@ function main {
     start=$($command)
     start_time=$(date +%s)
     if ! isint "$start"; then
-      fail "Error: command '$command' failed or did not output an integer."
+      fail "Error: command '$command' failed or did not output an integer. Output:
+$start"
     fi
   fi
   if [[ $start -gt $goal ]]; then
@@ -87,7 +88,8 @@ function main {
     if [[ $current == $start ]]; then
       echo "Still $current. No change yet."
     elif ! isint "$current"; then
-      echo "Error: command '$command' failed or did not output an integer." >&2
+      echo "Error: command '$command' failed or did not output an integer. Output:
+$current" >&2
     else
       if [[ $countdown ]]; then
         progress=$((start-current))
