@@ -39,8 +39,8 @@ function main {
   fi
 
   if [[ $mount ]]; then
-    if ! [[ -f "$file" ]]; then
-      fail "Error: $file does not exist or is not a regular file."
+    if ! ([[ -f "$file" ]] || [[ -b "$file" ]]); then
+      fail "Error: $file does not exist or is not a regular file or block device."
     fi
     if ! [[ -d $MntDir ]]; then
       fail "Error: $MntDir directory does not exist."
@@ -50,7 +50,7 @@ function main {
       for i in {1..64}; do
         mount_point=$MntDir/truecrypt$i
         if [[ -d $mount_point ]]; then
-          if [[ $(find $mount_point | wc -l) -gt 1 ]]; then
+          if [[ $(find $mount_point -maxdepth 1 | wc -l) -gt 1 ]]; then
             continue  # mount point in use
           elif [[ $(mount | awk '$3 == "'$mount_point'" {print $0;}') ]]; then
             continue  # mount point in use
