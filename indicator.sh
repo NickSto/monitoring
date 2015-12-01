@@ -51,7 +51,7 @@ updisp=$(cat "$DataDir/upstatus.txt")
 
 # $ping_str: Last ping latency
 logfile=$(grep -E ^logfile "$DataDir/upmonitor.cfg" | sed -E 's/^logfile\s*=\s*//')
-if [[ $logfile ]] && [[ -s $logfile ]]; then
+if [[ $logfile ]] && [[ -f $logfile ]]; then
   read ping ping_time rest <<< $(tail -n 1 "$logfile")
 fi
 # If ping is old, mark it as not applicable.
@@ -70,8 +70,14 @@ if [[ $ping_time ]]; then
   else
     ping_str="N/A ms / $age_str ago"
   fi
+elif ! [[ -f "$DataDir/upmonitor.cfg" ]]; then
+  ping_str='no upmonitor.cfg'
+elif ! [[ -f $logfile ]]; then
+  ping_str='no log'
+elif ! [[ "$(tail -n 1 "$logfile")" ]]; then
+  ping_str='empty log line'
 else
-  ping_str="no file"
+  ping_str='error'
 fi
 # if ping is old, and upmonitor doesn't say it's offline, assume it's frozen
 if [[ $updisp != '[OFFLINE]' ]] && [[ $ping_time -lt $thres ]]; then
