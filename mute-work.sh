@@ -4,7 +4,6 @@ set -ue
 DATA_DIR="$HOME/.local/share/nbsdata"
 SILENCE="$DATA_DIR/SILENCE"
 STATUS_FILE="$DATA_DIR/mute-checked"
-CACHE_FILE="$DATA_DIR/asn-cache.tsv"
 
 DAY_START="8" # 8:00AM
 DAY_END="18"  # 6:00PM
