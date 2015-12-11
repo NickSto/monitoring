@@ -1,33 +1,38 @@
 #!/usr/bin/env bash
 set -ue
 
-DATA_DIR="$HOME/.local/share/nbsdata"
-SILENCE="$DATA_DIR/SILENCE"
-STATUS_FILE="$DATA_DIR/mute-checked"
+DataDir="$HOME/.local/share/nbsdata"
+Silence="$DataDir/SILENCE"
+StatusFile="$DataDir/mute-checked"
 
-DAY_START="8" # 8:00AM
-DAY_END="18"  # 6:00PM
-WORK_ASNS="AS3999 AS25"
+DayStart="8"   # 8:00AM
+DayEnd="18"    # 6:00PM
+Weekdays=true  # Only activate on weekdays.
+WorkAsns="AS3999 AS25"
 # AS3999: Penn State
 # AS25:   UC Berkeley
 
 
 function main {
   
-  if [[ -e $SILENCE ]]; then
+  if [[ -e $Silence ]]; then
     exit
   fi
 
   # Not currently work hours? Exit.
+  day=$(date +%u)
+  if [[ $Weekdays ]] && ([[ $day -lt 1 ]] || [[ $day -gt 5 ]]); then
+    exit 0
+  fi
   now_hour=$(date +%k)
-  if [[ $now_hour -lt $DAY_START ]] || [[ $now_hour -ge $DAY_END ]]; then
+  if [[ $now_hour -lt $DayStart ]] || [[ $now_hour -ge $DayEnd ]]; then
     exit 0
   fi
 
   # Check status file to know if we've already checked today.
   today=$(date +%F)
-  if [[ -e $STATUS_FILE ]]; then
-    file_date=$(stat -c '%y' $STATUS_FILE | awk '{print $1}')
+  if [[ -e $StatusFile ]]; then
+    file_date=$(stat -c '%y' $StatusFile | awk '{print $1}')
     # If status file is present and from today, we've already checked. Exit.
     if [[ $file_date == $today ]]; then
       exit 0
@@ -38,10 +43,10 @@ function main {
   get_asn=$(get_command 'get-asn.sh')
   asn=$(bash $get_asn)
 
-  for work_asn in $WORK_ASNS; do
+  for work_asn in $WorkAsns; do
     if [[ $asn == $work_asn ]]; then
       work_action
-      touch $STATUS_FILE
+      touch $StatusFile
     fi
   done
 }
