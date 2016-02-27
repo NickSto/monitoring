@@ -27,9 +27,14 @@ NF == 7 && $6 == "ESTABLISHED" {
       ip = ip":"fields[i];
     }
   }
-  split($7, fields, "/");
-  proc = fields[1];
-  prog = fields[2];
+  if ($7 == "-") {
+    proc = "-";
+    prog = "-";
+  } else {
+    split($7, fields, "/");
+    proc = fields[1];
+    prog = fields[2];
+  }
   # Filter
   if (watch_ports || watch_progs || watch_procs) {
     passed = 0;

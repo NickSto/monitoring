@@ -61,11 +61,33 @@ function main {
   echo -e '  program\tpid\tport\tdestination'
 
   while true; do
+    # Run netstat, format and filter the output, and pipe to a temporary file.
     netstat -A inet,inet6 --program -W 2>/dev/null | \
-        awk -f $dir/netdiff.awk -v watch_ports=$watch_ports \
+      # Run output through netdiff.awk, which does the formatting and filtering.
+      awk -f $dir/netdiff.awk -v watch_ports=$watch_ports \
         -v watch_progs=$watch_progs -v watch_procs=$watch_procs \
         -v ignore_ports=$ignore_ports -v ignore_progs=$ignore_progs \
-        -v ignore_procs=$ignore_procs | sort > $new
+        -v ignore_procs=$ignore_procs | \
+      # Sort by program name.
+      sort | \
+      # Check if the program name is unresolved and try to use lsof to find it.
+      #TODO: Maybe just use lsof in the first place?
+      while read prog proc port dest; do
+        if [[ $prog == '-' ]]; then
+          if [[ $dest =~ [a-fA-F:] ]]; then
+            # IPv6 addresses have to be encased in brackets.
+            result=$(lsof -n -F pc -i @[$dest]:$port 2>/dev/null)
+          else
+            result=$(lsof -n -F pc -i @$dest:$port 2>/dev/null)
+          fi
+          if [[ $result ]]; then
+            proc=$(echo $result | awk '{print substr($1, 2)}')
+            prog=$(echo $result | awk '{print substr($2, 2)}')
+          fi
+          # echo "Used lsof on connection to $dest. Result: $prog $proc" >&2
+        fi
+        echo -e "$prog\t$proc\t$port\t$dest"
+      done > $new
     diff=$(diff $old $new | sed -En -e 's/^>/+/p' -e 's/^</-/p')
     if [[ "$diff" ]]; then
       echo "$diff"
