@@ -84,4 +84,28 @@ if [[ $updisp != '[OFFLINE]' ]] && [[ $ping_time -lt $thres ]]; then
   updisp='[STALLED]'
 fi
 
-echo "[ $free free ]$updisp[ $ping_str ][ $temp ]"
+# If the wifi-login script is running, include its current status from its log file.
+# Get the log file it's printing to from its entry in ps aux. Also get its pid.
+read log pid <<< $(ps aux | awk '$11 == "python" && $12 ~ /wifi-login2\.py$/ {for (i = 13; i <= NF; i++) {if ($i == "-l" || $i == "--log") {i++; print $i, $2; break}}}')
+login_status=
+if [[ $pid ]]; then
+  if [[ ${log:0:1} == "/" ]]; then
+    # $log is an absolute path.
+    log_path=$log
+  else
+    # $log is a relative path. Piece its absolute path together using the process' working directory.
+    wd=$(pwdx $pid | awk '{print $2}')
+    log_path=$wd/$log
+  fi
+  if [[ -s $log_path ]]; then
+    # Get the most recent log message.
+    log_line=$(tail -n 1 $log_path | sed -E 's/^[^:]+: //')
+    if [[ ${#log_line} -gt 35 ]]; then
+      login_status="[ ${log_line:0:35}.. ]"
+    else
+      login_status="[ $log_line ]"
+    fi
+  fi
+fi
+
+echo "[ $free free ]$login_status$updisp[ $ping_str ][ $temp ]"
