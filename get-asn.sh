@@ -52,15 +52,15 @@ function get_ip_asn {
   now=$(date +%s)
 
   # Look up ASN in cache file by ip.
-  read asn timestamp <<< $(awk '$1 == "'$ip'" {print $2,$3}' $AsnIpCache | head -n 1)
+  read asn timestamp <<< $(awk '$1 == "'$ip'" {print $2,$3; exit}' $AsnIpCache)
   if [[ $asn ]] && [[ $timestamp ]] && [[ $((now-timestamp)) -lt $timeout ]]; then
     [[ $Debug ]] && echo "Cache hit, $((now-timestamp)) seconds old." >&2
     echo $asn
     exit
   fi
 
-  # Failure to find ASN in cache.
   [[ $Debug ]] && echo "Cache miss. Looking up using ipinfo.io.." >&2
+  # Failure to find ASN in cache.
 
   # Don't make the request, if SILENCE is in effect.
   if [[ -e $Silence ]]; then
@@ -93,17 +93,17 @@ function get_current_asn {
   # Get info about the current LAN.
   read gateway_ip interface <<< $(get_lan_ip_interface)
   mac=$(get_mac $gateway_ip $interface)
+  [[ $Debug ]] && echo "Found gateway IP \"$gateway_ip\" and MAC address \"$mac\" of interface \"$interface\"." >&2
 
   # Look up ASN in cache file by gateway ip and mac.
-  if [[ $gateway_ip ]] && [[ $mac ]]; then
-    read asn timestamp <<< $(awk '$1 == "'$mac'" && $2 == "'$gateway_ip'" \
-      {print $3,$4}' $AsnMacCache | head -n 1)
-    if [[ $((now-timestamp)) -lt $timeout ]]; then
-      echo $asn
-      exit
-    fi
+  read asn timestamp <<< $(awk '$1 == "'$mac'" && $2 == "'$gateway_ip'" {print $3,$4; exit}' $AsnMacCache)
+  if [[ $asn ]] && [[ $timestamp ]] && [[ $((now-timestamp)) -lt $timeout ]]; then
+    [[ $Debug ]] && echo "Cache hit." >&2
+    echo $asn
+    exit
   fi
 
+  [[ $Debug ]] && echo "Cache miss. Looking up ASN with ipinfo.io.." >&2
   # Failure to find ASN by gateway IP and MAC address.
   # We'll have to reach out to an outside service to get the ASN.
 
@@ -113,11 +113,10 @@ function get_current_asn {
   fi
 
   # Get ASN using ipinfo.io. API limits requests to 1000 per day.
-  if ! [[ $asn ]]; then
-    asn=$(curl -s http://ipinfo.io/org | grep -Eo '^AS[0-9]+')
-  fi
+  asn=$(curl -s http://ipinfo.io/org | grep -Eo '^AS[0-9]+')
 
   if [[ $asn ]]; then
+    [[ $Debug ]] && echo "Found using ipinfo.io." >&2
     echo $asn
   else
     fail "Error: Failure to find ASN."
@@ -125,6 +124,7 @@ function get_current_asn {
 
   # Record the association between the gateway IP/MAC address and ASN.
   if [[ $gateway_ip ]] && [[ $mac ]]; then
+    [[ $Debug ]] && echo "Cleaning cache.." >&2
     echo -e "$mac\t$gateway_ip\t$asn\t$now" >> $AsnMacCache
     # Remove stale entries from cache.
     clean_cache $AsnMacCache $timeout 4
@@ -146,8 +146,7 @@ function clean_cache {
 # Get the LAN IP and interface of the default route.
 function get_lan_ip_interface {
   ip route show \
-    | awk '$1 == "default" && $2 == "via" && $4 == "dev" {print $3,$5}' \
-    | head -n 1
+    | awk '$1 == "default" && $2 == "via" && $4 == "dev" {print $3,$5; exit}'
 }
 
 
