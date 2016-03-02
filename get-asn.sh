@@ -6,7 +6,7 @@ fi
 set -ue
 
 
-USAGE="Usage: $(basename $0)
+Usage="Usage: $(basename $0) [-t timeout]
 Determine which ASN (ISP) you're connected to, using an API from an external
 site (ipinfo.io). However, by using a cache, most of the time this will not make
 any connection to an external site, or even create any network traffic at all.
@@ -23,17 +23,24 @@ TimeoutDefault=86400 # 1 day
 
 
 function main {
-  asn=''
-  timeout=$TimeoutDefault
-  getmyopts "$@"
 
+  timeout=$TimeoutDefault
+  while getopts ":t:h" opt; do
+    case "$opt" in
+      t) timeout="$OPTARG";;
+      *) fail "$Usage";;
+    esac
+  done
+
+  asn=''
   now=$(date +%s)
 
+  # Get info about the current LAN.
   read gateway_ip interface <<< $(get_lan_ip_interface)
   mac=$(get_mac $gateway_ip $interface)
 
+  # Look up ASN in cache file by gateway ip and mac.
   if [[ $gateway_ip ]] && [[ $mac ]]; then
-    # Look up ASN in cache file by gateway ip and mac
     read asn timestamp <<< $(awk '$1 == "'$mac'" && $2 == "'$gateway_ip'" \
       {print $3,$4}' $AsnMacCache | head -n 1)
     if [[ $((now-timestamp)) -lt $timeout ]]; then
@@ -51,7 +58,7 @@ function main {
   fi
 
   # Get ASN using ipinfo.io. API limits requests to 1000 per day.
-  if [[ ! $asn ]]; then
+  if ! [[ $asn ]]; then
     asn=$(curl -s http://ipinfo.io/org | grep -Eo '^AS[0-9]+')
   fi
 
@@ -68,15 +75,6 @@ function main {
     clean_cache $AsnMacCache $timeout
   fi
 
-}
-
-
-function getmyopts {
-  while getopts ":h" opt; do
-    case "$opt" in
-      h) fail "$USAGE";;
-    esac
-  done
 }
 
 
