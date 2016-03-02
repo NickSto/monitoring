@@ -1,16 +1,28 @@
 #!/usr/bin/env bash
 set -ue
 
-DataDir="$HOME/.local/share/nbsdata"
-Silence="$DataDir/SILENCE"
-StatusFile="$DataDir/mute-checked"
+#TODO: Also allow identifying a work environment by an IP address. Allows places like specific
+#      coffee shops which don't have their own ASN.
 
 DayStart="8"   # 8:00AM
 DayEnd="18"    # 6:00PM
 Weekdays=true  # Only activate on weekdays.
-WorkAsns="AS3999 AS25"
-# AS3999: Penn State
-# AS25:   UC Berkeley
+WorkAsns="AS3999 AS46749 AS25"
+# AS3999:  Penn State
+# AS46749: Stanford
+# AS25:    UC Berkeley
+
+DataDir="$HOME/.local/share/nbsdata"
+Silence="$DataDir/SILENCE"
+StatusFile="$DataDir/mute-checked"
+Usage="Usage: \$ $(basename $0)
+Mute if it's work hours and we're at work (based on the ASN of your network). Requires a connection
+to look up your IP address. The workday is defined as between the hours of $DayStart and $DayEnd on weekdays.
+The current ASNs defined as workplaces are: $WorkAsns.
+If it sees the file $StatusFile exists, it will assume we've already
+checked today and it won't run.
+Options:
+-n: Run now, regardless of work hours/days."
 
 
 function main {
@@ -19,14 +31,26 @@ function main {
     exit
   fi
 
-  # Not currently work hours? Exit.
-  day=$(date +%u)
-  if [[ $Weekdays ]] && ([[ $day -lt 1 ]] || [[ $day -gt 5 ]]); then
-    exit 0
+  now=
+  if [[ $# -gt 0 ]]; then
+    if [[ $1 == '-h' ]]; then
+      echo "$Usage" >&2
+      exit 1
+    elif [[ $1 == '-n' ]]; then
+      now=true
+    fi
   fi
-  now_hour=$(date +%k)
-  if [[ $now_hour -lt $DayStart ]] || [[ $now_hour -ge $DayEnd ]]; then
-    exit 0
+
+  # Exit if it's not currently work hours. If -n was given, run now regardless of the time.
+  if ! [[ $now ]]; then
+    day=$(date +%u)
+    if [[ $Weekdays ]] && ([[ $day -lt 1 ]] || [[ $day -gt 5 ]]); then
+      exit 0
+    fi
+    now_hour=$(date +%k)
+    if [[ $now_hour -lt $DayStart ]] || [[ $now_hour -ge $DayEnd ]]; then
+      exit 0
+    fi
   fi
 
   # Check status file to know if we've already checked today.
