@@ -64,7 +64,7 @@ function main {
   fi
 
   # Status unknown and it's currently work hours. Does it look like we're at work?
-  get_asn=$(get_command 'get-asn.sh')
+  get_asn=$(get_command 'getasn.sh')
   asn=$(bash $get_asn)
 
   for work_asn in $WorkAsns; do
