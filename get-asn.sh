@@ -3,23 +3,26 @@ if [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
   echo "Error: Must use bash version 4+." >&2
   exit 1
 fi
-set -ue
+set -u
 
 
-Usage="Usage: $(basename $0) [-t timeout]
-Determine which ASN (ISP) you're connected to, using an API from an external
-site (ipinfo.io). However, by using a cache, most of the time this will not make
-any connection to an external site, or even create any network traffic at all.
-It will only do so if you move to a different local network (identified by your
-gateway's IP and MAC) or the cache entry expires (currently 1 day expiration
-time)."
-
-
+Debug=${Debug:-}
 DataDir="$HOME/.local/share/nbsdata"
 Silence="$DataDir/SILENCE"
 AsnMacCache="$DataDir/asn-mac-cache.tsv"
+AsnIpCache="$DataDir/asn-ip-cache.tsv"
 # How long to trust cache entries (in seconds)?
 TimeoutDefault=86400 # 1 day
+
+
+Usage="Usage: $(basename $0) [-t timeout] [ip]
+Look up the ASN (ISP) of an IP address, or if none is given, determine which ASN
+you're connected to. Uses an API from an external site (ipinfo.io). However, by
+using a cache, most of the time this will not make any connection to an external
+site, or even create any network traffic at all. It will only do so if you move
+to a different local network (identified by your gateway's IP and MAC) or the
+cache entry expires. By default, cache entries expire in $TimeoutDefault seconds
+(1 day), but this can be changed with the -t argument."
 
 
 function main {
@@ -31,6 +34,58 @@ function main {
       *) fail "$Usage";;
     esac
   done
+  ip=${@:$OPTIND:1}
+
+  if [[ $ip ]]; then
+    [[ $Debug ]] && echo "IP address provided. Looking up ASN of $ip.." >&2
+    get_ip_asn $ip $timeout
+  else
+    [[ $Debug ]] && echo "No IP address provided. Looking up your current ASN.." >&2
+    get_current_asn $timeout
+  fi
+}
+
+
+function get_ip_asn {
+  read ip timeout <<< "$@"
+
+  now=$(date +%s)
+
+  # Look up ASN in cache file by ip.
+  read asn timestamp <<< $(awk '$1 == "'$ip'" {print $2,$3}' $AsnIpCache | head -n 1)
+  if [[ $asn ]] && [[ $timestamp ]] && [[ $((now-timestamp)) -lt $timeout ]]; then
+    [[ $Debug ]] && echo "Cache hit, $((now-timestamp)) seconds old." >&2
+    echo $asn
+    exit
+  fi
+
+  # Failure to find ASN in cache.
+  [[ $Debug ]] && echo "Cache miss. Looking up using ipinfo.io.." >&2
+
+  # Don't make the request, if SILENCE is in effect.
+  if [[ -e $Silence ]]; then
+    fail "Error: SILENCE file is present ($Silence). Cannot continue."
+  fi
+
+  asn=$(curl -s http://ipinfo.io/$ip/org | grep -Eo '^AS[0-9]+')
+
+  if [[ $asn ]]; then
+    [[ $Debug ]] && echo "Found using ipinfo.io." >&2
+    echo $asn
+  else
+    fail "Error: Failure to find ASN."
+  fi
+
+  # Record the association between the gateway IP/MAC address and ASN.
+  [[ $Debug ]] && echo "Cleaning cache.." >&2
+  echo -e "$ip\t$asn\t$now" >> $AsnIpCache
+  # Remove stale entries from cache.
+  clean_cache $AsnIpCache $timeout 3
+}
+
+
+function get_current_asn {
+  read timeout <<< "$@"
 
   asn=''
   now=$(date +%s)
@@ -72,7 +127,7 @@ function main {
   if [[ $gateway_ip ]] && [[ $mac ]]; then
     echo -e "$mac\t$gateway_ip\t$asn\t$now" >> $AsnMacCache
     # Remove stale entries from cache.
-    clean_cache $AsnMacCache $timeout
+    clean_cache $AsnMacCache $timeout 4
   fi
 
 }
@@ -80,11 +135,11 @@ function main {
 
 # Remove entries from the $AsnMacCache which are older than $timeout
 function clean_cache {
-  read cache_file timeout <<< "$@"
+  read cache_file timeout time_column <<< "$@"
   cache_file_bak="$cache_file.bak"
   now=$(date +%s)
   mv $cache_file $cache_file_bak
-  awk "$now - \$4 <= $timeout {print \$0}" $cache_file_bak > $cache_file
+  awk "$now - \$$time_column <= $timeout {print \$0}" $cache_file_bak > $cache_file
 }
 
 
