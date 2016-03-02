@@ -15,21 +15,29 @@ AsnIpCache="$DataDir/asn-ip-cache.tsv"
 TimeoutDefault=86400 # 1 day
 
 
-Usage="Usage: $(basename $0) [-t timeout] [ip]
+Usage="Usage: $(basename $0) [-n] [-t timeout] [ip]
 Look up the ASN (ISP) of an IP address, or if none is given, determine which ASN
 you're connected to. Uses an API from an external site (ipinfo.io). However, by
 using a cache, most of the time this will not make any connection to an external
 site, or even create any network traffic at all. It will only do so if you move
 to a different local network (identified by your gateway's IP and MAC) or the
-cache entry expires. By default, cache entries expire in $TimeoutDefault seconds
-(1 day), but this can be changed with the -t argument."
+cache entry expires.
+Options:
+-n: Don't use the cache to look up the ASN. Always query ipinfo.io. (Will still
+    update the cache after a successful query).
+-t: Use a cache expiration time of this many seconds. Default: $TimeoutDefault (1 day).
+Caches:
+$AsnMacCache
+$AsnIpCache"
 
 
 function main {
 
+  no_cache=
   timeout=$TimeoutDefault
-  while getopts ":t:h" opt; do
+  while getopts ":t:nh" opt; do
     case "$opt" in
+      n) no_cache=true;;
       t) timeout="$OPTARG";;
       *) fail "$Usage";;
     esac
@@ -38,35 +46,40 @@ function main {
 
   if [[ $ip ]]; then
     [[ $Debug ]] && echo "IP address provided. Looking up ASN of $ip.." >&2
-    get_ip_asn $ip $timeout
+    get_ip_asn $ip $timeout $no_cache
   else
     [[ $Debug ]] && echo "No IP address provided. Looking up your current ASN.." >&2
-    get_current_asn $timeout
+    get_current_asn $timeout $no_cache
   fi
 }
 
 
 function get_ip_asn {
-  read ip timeout <<< "$@"
+  read ip timeout no_cache <<< "$@"
 
   now=$(date +%s)
 
-  # Look up ASN in cache file by ip.
-  read asn timestamp <<< $(awk '$1 == "'$ip'" {print $2,$3; exit}' $AsnIpCache)
-  if [[ $asn ]] && [[ $timestamp ]] && [[ $((now-timestamp)) -lt $timeout ]]; then
-    [[ $Debug ]] && echo "Cache hit, $((now-timestamp)) seconds old." >&2
-    echo $asn
-    exit
+  # If enabled, look up ASN in cache file by ip.
+  if [[ $no_cache ]]; then
+    [[ $Debug ]] && echo "Skipping cache.." >&2
+  else
+    read asn timestamp <<< $(awk '$1 == "'$ip'" {print $2,$3; exit}' $AsnIpCache)
+    if [[ $asn ]] && [[ $timestamp ]] && [[ $((now-timestamp)) -lt $timeout ]]; then
+      [[ $Debug ]] && echo "Cache hit, $((now-timestamp)) seconds old." >&2
+      echo $asn
+      return 0
+    else
+      # Failure to find ASN in cache.
+      [[ $Debug ]] && echo "Cache miss. Looking up using ipinfo.io.." >&2
+    fi
   fi
 
-  [[ $Debug ]] && echo "Cache miss. Looking up using ipinfo.io.." >&2
-  # Failure to find ASN in cache.
-
-  # Don't make the request, if SILENCE is in effect.
+  # Don't make the request if SILENCE is in effect.
   if [[ -e $Silence ]]; then
     fail "Error: SILENCE file is present ($Silence). Cannot continue."
   fi
 
+  # Look up ASN using ipinfo.io. API limits requests to 1000 per day.
   asn=$(curl -s http://ipinfo.io/$ip/org | grep -Eo '^AS[0-9]+')
 
   if [[ $asn ]]; then
@@ -76,16 +89,21 @@ function get_ip_asn {
     fail "Error: Failure to find ASN."
   fi
 
-  # Record the association between the gateway IP/MAC address and ASN.
-  [[ $Debug ]] && echo "Cleaning cache.." >&2
-  echo -e "$ip\t$asn\t$now" >> $AsnIpCache
-  # Remove stale entries from cache.
-  clean_cache $AsnIpCache $timeout 3
+  # Record the association between the IP address and ASN.
+  # Don't add to the cache if we didn't use it. That could get us into the situation where we keep
+  # adding duplicate entries to the cache, and they aren't cleaned out for a long time (when they
+  # expire, which could be a day or longer).
+  if ! [[ $no_cache ]]; then
+    [[ $Debug ]] && echo "Cleaning cache.." >&2
+    echo -e "$ip\t$asn\t$now" >> $AsnIpCache
+    # Remove stale entries from cache.
+    clean_cache $AsnIpCache $timeout 3
+  fi
 }
 
 
 function get_current_asn {
-  read timeout <<< "$@"
+  read timeout no_cache <<< "$@"
 
   asn=''
   now=$(date +%s)
@@ -93,19 +111,22 @@ function get_current_asn {
   # Get info about the current LAN.
   read gateway_ip interface <<< $(get_lan_ip_interface)
   mac=$(get_mac $gateway_ip $interface)
-  [[ $Debug ]] && echo "Found gateway IP \"$gateway_ip\" and MAC address \"$mac\" of interface \"$interface\"." >&2
 
-  # Look up ASN in cache file by gateway ip and mac.
-  read asn timestamp <<< $(awk '$1 == "'$mac'" && $2 == "'$gateway_ip'" {print $3,$4; exit}' $AsnMacCache)
-  if [[ $asn ]] && [[ $timestamp ]] && [[ $((now-timestamp)) -lt $timeout ]]; then
-    [[ $Debug ]] && echo "Cache hit." >&2
-    echo $asn
-    exit
+  if [[ $no_cache ]]; then
+    [[ $Debug ]] && echo "Skipping cache.." >&2
+  else
+    [[ $Debug ]] && echo "Found gateway IP \"$gateway_ip\" and MAC address \"$mac\" of interface \"$interface\"." >&2
+    # Look up ASN in cache file by gateway ip and mac.
+    read asn timestamp <<< $(awk '$1 == "'$mac'" && $2 == "'$gateway_ip'" {print $3,$4; exit}' $AsnMacCache)
+    if [[ $asn ]] && [[ $timestamp ]] && [[ $((now-timestamp)) -lt $timeout ]]; then
+      [[ $Debug ]] && echo "Cache hit." >&2
+      echo $asn
+      return 0
+    else
+      # Failure to find ASN by gateway IP and MAC address.
+      [[ $Debug ]] && echo "Cache miss. Looking up ASN with ipinfo.io.." >&2
+    fi
   fi
-
-  [[ $Debug ]] && echo "Cache miss. Looking up ASN with ipinfo.io.." >&2
-  # Failure to find ASN by gateway IP and MAC address.
-  # We'll have to reach out to an outside service to get the ASN.
 
   # Don't make the request, if SILENCE is in effect.
   if [[ -e $Silence ]]; then
@@ -123,7 +144,10 @@ function get_current_asn {
   fi
 
   # Record the association between the gateway IP/MAC address and ASN.
-  if [[ $gateway_ip ]] && [[ $mac ]]; then
+  # Don't add to the cache if we didn't use it. That could get us into the situation where we keep
+  # adding duplicate entries to the cache, and they aren't cleaned out for a long time (when they
+  # expire, which could be a day or longer).
+  if ! [[ $no_cache ]] && [[ $gateway_ip ]] && [[ $mac ]]; then
     [[ $Debug ]] && echo "Cleaning cache.." >&2
     echo -e "$mac\t$gateway_ip\t$asn\t$now" >> $AsnMacCache
     # Remove stale entries from cache.
