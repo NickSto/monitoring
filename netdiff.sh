@@ -6,25 +6,22 @@ fi
 set -u
 
 SleepDefault=5
-WatchPortsDefault=''
-WatchProgsDefault=''
-WatchProcsDefault=''
-IgnorePortsDefault=''
-IgnoreProgsDefault=''
-IgnoreProcsDefault=''
 
 USAGE="Usage: \$ $(basename $0) [options]
 Monitor when IP connections are opened or closed. New connections are marked \"+\", closed ones \"-\".
 Options:
 -w: How long to wait between checks. Default: $SleepDefault seconds.
 -s: Port(s) to watch exclusively. Give in a comma-separated list, like \"http,3785\". You must use
-    either the port number or the service name according to what netstat uses.
-    Default: \"$IgnorePortsDefault\".
+    either the port number or the service name according to what lsof uses.
 -c: Processes name(s) to watch exclusively.
 -p: Process id(s) to watch exclusively.
+-d: Destination(s) to watch exclusively.
+-t: Connection state(s) to watch exclusively.
 -S: Port(s) to ignore. Give as a comma-separated list.
 -C: Process name(s) to ignore.
--P: Process id(s) to ignore."
+-P: Process id(s) to ignore.
+-D: Destination(s) to ignore.
+-T: Connection state(s) to ignore."
 
 function main {
 
@@ -34,21 +31,29 @@ function main {
   fi
 
   sleep="$SleepDefault"
-  watch_ports="$WatchPortsDefault"
-  watch_progs="$WatchProgsDefault"
-  watch_procs="$WatchProcsDefault"
-  ignore_ports="$IgnorePortsDefault"
-  ignore_progs="$IgnoreProgsDefault"
-  ignore_procs="$IgnoreProcsDefault"
-  while getopts ":w:s:c:p:S:C:P:h" opt; do
+  watch_ports=
+  watch_progs=
+  watch_procs=
+  watch_dests=
+  watch_states=
+  ignore_ports=
+  ignore_progs=
+  ignore_procs=
+  ignore_dests=
+  ignore_states=
+  while getopts ":w:s:c:p:d:t:S:C:P:D:T:h" opt; do
     case "$opt" in
       w) sleep="$OPTARG";;
       s) watch_ports="$OPTARG";;
       c) watch_progs="$OPTARG";;
       p) watch_procs="$OPTARG";;
+      d) watch_dests="$OPTARG";;
+      t) watch_states="$OPTARG";;
       S) ignore_ports="$OPTARG";;
       C) ignore_progs="$OPTARG";;
       P) ignore_procs="$OPTARG";;
+      D) ignore_dests="$OPTARG";;
+      T) ignore_states="$OPTARG";;
       h) fail "$USAGE";;
     esac
   done
@@ -58,36 +63,18 @@ function main {
   touch $old
   trap cleanup SIGINT SIGHUP SIGQUIT SIGKILL
 
-  echo -e '  program\tpid\tport\tdestination'
+  echo -e '  program\tpid\tport\tdestination\tprotocol\tstate'
 
   while true; do
-    # Run netstat, format and filter the output, and pipe to a temporary file.
-    netstat -A inet,inet6 --program -W 2>/dev/null | \
+    # Run lsof, format and filter the output, and pipe to a temporary file.
+    lsof -i -n -F pcnTP 2>/dev/null | \
       # Run output through netdiff.awk, which does the formatting and filtering.
-      awk -f $dir/netdiff.awk -v watch_ports=$watch_ports \
-        -v watch_progs=$watch_progs -v watch_procs=$watch_procs \
-        -v ignore_ports=$ignore_ports -v ignore_progs=$ignore_progs \
-        -v ignore_procs=$ignore_procs | \
+      awk -f $dir/netdiff.awk -v watch_ports=$watch_ports -v watch_progs=$watch_progs \
+        -v watch_procs=$watch_procs -v watch_dests=$watch_dests -v watch_states=$watch_states \
+        -v ignore_ports=$ignore_ports -v ignore_progs=$ignore_progs -v ignore_procs=$ignore_procs \
+        -v ignore_dests=$ignore_dests -v ignore_states=$ignore_states | \
       # Sort by program name.
-      sort | \
-      # Check if the program name is unresolved and try to use lsof to find it.
-      #TODO: Maybe just use lsof in the first place?
-      while read prog proc port dest; do
-        if [[ $prog == '-' ]]; then
-          if [[ $dest =~ [a-fA-F:] ]]; then
-            # IPv6 addresses have to be encased in brackets.
-            result=$(lsof -n -F pc -i @[$dest]:$port 2>/dev/null)
-          else
-            result=$(lsof -n -F pc -i @$dest:$port 2>/dev/null)
-          fi
-          if [[ $result ]]; then
-            proc=$(echo $result | awk '{print substr($1, 2)}')
-            prog=$(echo $result | awk '{print substr($2, 2)}')
-          fi
-          # echo "Used lsof on connection to $dest. Result: $prog $proc" >&2
-        fi
-        echo -e "$prog\t$proc\t$port\t$dest"
-      done > $new
+      sort > $new
     diff=$(diff $old $new | sed -En -e 's/^>/+/p' -e 's/^</-/p')
     if [[ "$diff" ]]; then
       echo "$diff"
