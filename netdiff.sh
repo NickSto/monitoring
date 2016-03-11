@@ -13,20 +13,19 @@ Options:
 -w: How long to wait between checks. Default: $SleepDefault seconds.
 -n: Don't look up domain names for ip addresses (pass -n to lsof) (is much faster).
 Filters:
-
--s: Port(s) to watch exclusively. Give in a comma-separated list, like \"http,3785\". You must use
-    either the port number or the service name according to what lsof uses.
--c: Processes name(s) to watch exclusively.
--p: Process id(s) to watch exclusively.
--d: Destination(s) to watch exclusively.
--t: Connection state(s) to watch exclusively.
--r: Protocol(s) to watch exclusively (pretty much either TCP or UDP).
--S: Port(s) to ignore. Give as a comma-separated list.
--C: Process name(s) to ignore.
--P: Process id(s) to ignore.
--D: Destination(s) to ignore.
--T: Connection state(s) to ignore.
--R: Protocol(s) to ignore."
+Use the lowercase to only watch those connections matching that particular criteria. If you want to
+give multiple values (e.g. you want to watch connections to google.com and localhost), give them as
+a comma-separated list (e.g. \$ netdiff -d localhost,google.com). It will show any connection
+matching any of those criteria. The same goes for using multiple different \"watch\" flags.
+Use the uppercase flag to ignore any connection matching the given criteria.
+If you give both \"watch\" and \"ignore\" flags, only the \"watch\" ones will be used.
+-s/-S: Ports (e.g. \"http\", \"3785\"). You must use either the port number or the service name
+       according to what lsof uses.
+-c/-C: Processes names (\"command\"). Beware that the OS typically truncates this to 15 characters.
+-p/-P: Process ids.
+-d/-D: Destinations. Give domain names, ip addresses, or hostnames; whatever lsof reports.
+-t/-T: Connection states (e.g. \"LISTEN\", \"ESTABLISHED\", \"SYN_SENT\", \"CLOSE_WAIT\").
+-r/-R: Protocols to watch exclusively (pretty much either TCP or UDP)."
 
 function main {
 
