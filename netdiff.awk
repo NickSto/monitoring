@@ -21,6 +21,8 @@ BEGIN {
   split(ignore_procs, iprocs, ",")
   split(watch_dests,  wdests, ",")
   split(ignore_dests, idests, ",")
+  split(watch_protocols,  wprotocols, ",")
+  split(ignore_protocols, iprotocols, ",")
   split(watch_states,  wstates, ",")
   split(ignore_states, istates, ",")
 }
@@ -116,6 +118,9 @@ function passed_filters() {
   for (i in istates) {
     if (state == istates[i]) passed = 0
   }
+  for (i in iprotocols) {
+    if (protocol == iprotocols[i]) passed = 0
+  }
   # Filter in watched connections
   for (i in wprogs) {
     if (prog == wprogs[i]) passed = 1
@@ -131,6 +136,9 @@ function passed_filters() {
   }
   for (i in wstates) {
     if (state == wstates[i]) passed = 1
+  }
+  for (i in wprotocols) {
+    if (protocol == wprotocols[i]) passed = 1
   }
   return passed
 }
