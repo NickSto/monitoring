@@ -7,6 +7,7 @@ set -u
 
 PauseDefault=5
 Usage="Usage: \$ $(basename $0) [options] [goal] command [args]
+Options:
 -p: minutes to wait between checks (${PauseDefault} min by default)
 -s: the starting number, if continuing from a previous run.
 -t: the starting time, if continuing from a previous run."
@@ -103,16 +104,34 @@ $current" >&2
       sec_togo=$(calc "$togo/$per_sec")
       display $sec_togo $current
     fi
-    sleep "$pause"m
+    if [[ $togo -gt 0 ]]; then
+      sleep "$pause"m
+    fi
   done
+
+  elapsed=$((current_time-start_time))
+  echo "Reached goal! Total time: "$(sec_to_human_time $elapsed)
+}
+
+function sec_to_human_time {
+  local seconds=$1
+  # Keep 1 decimal point of precision, except for seconds, where we drop all decimals.
+  local sec_togo=$(echo "$seconds" | sed -E 's/\..*$//')
+  local min_togo=$(calc $sec_togo/60 | sed -E 's/\.([0-9]).*$/.\1/')
+  local hr_togo=$(calc $min_togo/60 | sed -E 's/\.([0-9]).*$/.\1/')
+  if [[ $(calc "int($hr_togo)") -gt 1 ]]; then
+    echo "$hr_togo hours"
+  elif [[ $(calc "int($min_togo)") -gt 1 ]]; then
+    echo "$min_togo min"
+  else
+    echo "$sec_togo sec"
+  fi
 }
 
 function display {
   read sec_togo current <<< $@
   # Keep 1 decimal point of precision, except for seconds, where we drop all decimals.
-  local sec_togo=$(echo "$sec_togo" | sed -E 's/\..*$//')
-  local min_togo=$(calc $sec_togo/60 | sed -E 's/\.([0-9]).*$/.\1/')
-  local hr_togo=$(calc $min_togo/60 | sed -E 's/\.([0-9]).*$/.\1/')
+  local togo="$(sec_to_human_time $sec_togo)"
   local eta=$(date -d "now + $sec_togo seconds")
   local now=$(date)
   # Show date if the ETA isn't on the same day.
@@ -120,13 +139,6 @@ function display {
     eta=${eta:11:8}
   else
     eta=${eta:0:19}
-  fi
-  if [[ $(calc "int($hr_togo)") -gt 1 ]]; then
-    local togo="$hr_togo hours"
-  elif [[ $(calc "int($min_togo)") -gt 1 ]]; then
-    local togo="$min_togo min"
-  else
-    local togo="$sec_togo sec"
   fi
   echo "Current: $current | ETA: $eta ($togo)"
 }
