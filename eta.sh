@@ -6,8 +6,7 @@ fi
 set -u
 
 PauseDefault=5
-Usage="Usage: \$ $(basename $0) [options] 'command to check' [goal]
-If a \"goal\" is not given, it is assumed to be 0.
+Usage="Usage: \$ $(basename $0) [options] [goal] command [args]
 -p: minutes to wait between checks (${PauseDefault} min by default)
 -s: the starting number, if continuing from a previous run.
 -t: the starting time, if continuing from a previous run."
@@ -31,19 +30,21 @@ function main {
   narg=$OPTIND
   while [[ $narg -le $# ]]; do
     arg=${@:$narg:1}
-    if [[ ${arg:0:1} == '-' ]]; then
-      fail "Error: options like $arg must come before positional arguments."
-    fi
     narg=$((narg+1))
   done
   positionals=$((narg-OPTIND))
-  if [[ $positionals -lt 1 ]]; then
+  if [[ $positionals -lt 2 ]]; then
     fail "$Usage"
   fi
-  command="${@:$OPTIND:1}"
-  goal=0
-  if [[ $positionals -ge 2 ]]; then
-    goal="${@:$OPTIND+1:1}"
+  goal=${@:$OPTIND:1}
+  command="${@:$OPTIND+1:1}"
+  args=
+  if [[ $positionals -ge 3 ]]; then
+    args="${@:$OPTIND+2}"
+  fi
+  quoted=
+  if has_spaces "$command"; then
+    quoted=true
   fi
 
   # Check arguments
@@ -62,10 +63,10 @@ function main {
 
   # Check initial state.
   if ! ([[ $start ]] && [[ $start_time ]]); then
-    start=$($command)
+    start=$($command $args)
     start_time=$(date +%s)
     if ! isint "$start"; then
-      fail "Error: command '$command' failed or did not output an integer. Output:
+      fail "Error: command '$command $args' failed or did not output an integer. Output:
 $start"
     fi
   fi
@@ -83,12 +84,12 @@ $start"
     togo=$((goal-start))
   fi
   while [[ $togo -gt 0 ]]; do
-    current=$($command)
+    current=$($command $args)
     current_time=$(date +%s)
     if [[ $current == $start ]]; then
       echo "Still $current. No change yet."
     elif ! isint "$current"; then
-      echo "Error: command '$command' failed or did not output an integer. Output:
+      echo "Error: command '$command $args' failed or did not output an integer. Output:
 $current" >&2
     else
       if [[ $countdown ]]; then
@@ -128,6 +129,16 @@ function display {
     local togo="$sec_togo sec"
   fi
   echo "Current: $current | ETA: $eta ($togo)"
+}
+
+function has_spaces {
+  with=$(echo -n "$1" | wc -c)
+  without=$(echo -n "$1" | tr -d ' ' | wc -c)
+  if [[ $with == $without ]]; then
+    return 1
+  else
+    return 0
+  fi
 }
 
 function calc {
