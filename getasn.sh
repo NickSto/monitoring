@@ -26,6 +26,8 @@ Options:
 -n: Don't use the cache to look up the ASN. Always query ipinfo.io. (Will still
     update the cache after a successful query).
 -t: Use a cache expiration time of this many seconds. Default: $TimeoutDefault (1 day).
+-m: Just look up the MAC address of the wifi router (or whatever is the first
+    device on the default route).
 Caches:
 $AsnMacCache
 $AsnIpCache"
@@ -34,17 +36,22 @@ $AsnIpCache"
 function main {
 
   no_cache=
+  only_mac=
   timeout=$TimeoutDefault
-  while getopts ":t:nh" opt; do
+  while getopts ":t:nmh" opt; do
     case "$opt" in
       n) no_cache=true;;
       t) timeout="$OPTARG";;
+      m) only_mac=true;;
       *) fail "$Usage";;
     esac
   done
   ip=${@:$OPTIND:1}
 
-  if [[ $ip ]]; then
+  if [[ $only_mac ]]; then
+    [[ $Debug ]] && echo "Only looking up the gateway's MAC address.." >&2
+    get_default_mac
+  elif [[ $ip ]]; then
     [[ $Debug ]] && echo "IP address provided. Looking up ASN of $ip.." >&2
     get_ip_asn $ip $timeout $no_cache
   else
@@ -153,7 +160,6 @@ function get_current_asn {
     # Remove stale entries from cache.
     clean_cache $AsnMacCache $timeout 4
   fi
-
 }
 
 
@@ -167,9 +173,16 @@ function clean_cache {
 }
 
 
+# Get the MAC address of the device on the default route.
+function get_default_mac {
+  read gateway_ip interface <<< $(get_lan_ip_interface)
+  get_mac $gateway_ip $interface
+}
+
+
 # Get the LAN IP and interface of the default route.
 function get_lan_ip_interface {
-  ip route show \
+  /sbin/ip route show \
     | awk '$1 == "default" && $2 == "via" && $4 == "dev" {print $3,$5; exit}'
 }
 
@@ -177,8 +190,7 @@ function get_lan_ip_interface {
 # Look up the MAC address matching the given IP address on the given interface.
 function get_mac {
   read ip interface <<< "$@"
-  /usr/sbin/arp -a \
-    | awk '$3 == "at" && $6 == "on" && $2 == "('$ip')" && $7 == "'$interface'" {print $4}'
+  /usr/sbin/arp -an -i $interface $ip | awk '{print $4}'
 }
 
 

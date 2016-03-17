@@ -4,6 +4,7 @@ set -ue
 #TODO: Also allow identifying a work environment by an IP address. Allows places like specific
 #      coffee shops which don't have their own ASN.
 
+Debug=${Debug:-}
 DayStart="8"   # 8:00AM
 DayEnd="18"    # 6:00PM
 Weekdays=true  # Only activate on weekdays.
@@ -11,6 +12,8 @@ WorkAsns="AS3999 AS46749 AS25"
 # AS3999:  Penn State
 # AS46749: Stanford
 # AS25:    UC Berkeley
+WorkMacs="00:18:5a:58:56:20"
+# 00:18:5a:58:56:20: Peet's Menlo Park
 
 DataDir="$HOME/.local/share/nbsdata"
 Silence="$DataDir/SILENCE"
@@ -45,10 +48,12 @@ function main {
   if ! [[ $now ]]; then
     day=$(date +%u)
     if [[ $Weekdays ]] && ([[ $day -lt 1 ]] || [[ $day -gt 5 ]]); then
+      [[ $Debug ]] && echo "It's not a weekday. Exiting.." >&2
       exit 0
     fi
     now_hour=$(date +%k)
     if [[ $now_hour -lt $DayStart ]] || [[ $now_hour -ge $DayEnd ]]; then
+      [[ $Debug ]] && echo "It's not work hours ($DayStart:00 to $DayEnd:59). Exiting.." >&2
       exit 0
     fi
   fi
@@ -56,23 +61,45 @@ function main {
   # Check status file to know if we've already checked today.
   today=$(date +%F)
   if [[ -e $StatusFile ]]; then
+    [[ $Debug ]] && echo "Status file $StatusFile already exists." >&2
     file_date=$(stat -c '%y' $StatusFile | awk '{print $1}')
     # If status file is present and from today, we've already checked. Exit.
     if [[ $file_date == $today ]]; then
+      [[ $Debug ]] && echo "Status file is from today. We've already checked. Exiting.." >&2
       exit 0
+    else
+      [[ $Debug ]] && echo "Status file is stale. Need to perform check again." >&2
     fi
   fi
 
   # Status unknown and it's currently work hours. Does it look like we're at work?
   get_asn=$(get_command 'getasn.sh')
-  asn=$(bash $get_asn)
 
-  for work_asn in $WorkAsns; do
-    if [[ $asn == $work_asn ]]; then
+  # Check if it's a work MAC address.
+  mac=$(bash $get_asn -m | tr [:upper:] [:lower:])
+  [[ $Debug ]] && echo "Got gateway's MAC address: $mac" >&2
+  for work_mac in $WorkMacs; do
+    if [[ $mac == $work_mac ]]; then
+      [[ $Debug ]] && echo "MAC address matches a work MAC address." >&2
       work_action
       touch $StatusFile
+      exit 0
     fi
   done
+  [[ $Debug ]] && echo "Your MAC address doesn't match a work MAC address." >&2
+
+  # No luck? Check if it's a work ASN.
+  asn=$(bash $get_asn)
+  [[ $Debug ]] && echo "Got your current network's ASN: $asn" >&2
+  for work_asn in $WorkAsns; do
+    if [[ $asn == $work_asn ]]; then
+      [[ $Debug ]] && echo "ASN matches a work ASN." >&2
+      work_action
+      touch $StatusFile
+      exit 0
+    fi
+  done
+  [[ $Debug ]] && echo "Your ASN doesn't match a work ASN." >&2
 }
 
 
@@ -80,6 +107,7 @@ function main {
 function work_action {
   # mute sound
   # amixer --quiet set Master toggle  # old method
+  [[ $Debug ]] && echo "Muting sound.." >&2
   amixer --quiet -D pulse set Master toggle
 }
 
@@ -108,7 +136,8 @@ function get_command {
   command="$1"
   # Is it simply on the PATH?
   if which $command >/dev/null 2>/dev/null; then
-    echo "$bin_path"
+    echo "$command"
+    return
   fi
   path=$(real_dir)/$command
   if [[ -x $path ]]; then
