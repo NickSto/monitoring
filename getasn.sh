@@ -116,8 +116,11 @@ function get_current_asn {
   now=$(date +%s)
 
   # Get info about the current LAN.
+  mac=$(get_default_mac)
   read gateway_ip interface <<< $(get_lan_ip_interface)
-  mac=$(get_mac $gateway_ip $interface)
+  if ! ([[ $mac ]] && [[ $gateway_ip ]] && [[ $interface ]]); then
+    return 1
+  fi
 
   if [[ $no_cache ]]; then
     [[ $Debug ]] && echo "Skipping cache.." >&2
@@ -176,7 +179,12 @@ function clean_cache {
 # Get the MAC address of the device on the default route.
 function get_default_mac {
   read gateway_ip interface <<< $(get_lan_ip_interface)
-  get_mac $gateway_ip $interface
+  if [[ $gateway_ip ]] && [[ $interface ]]; then
+    get_mac $gateway_ip $interface
+  else
+    [[ $Debug ]] && echo "Error getting interface and local ip from \"ip route show\"." >&2
+    return 1
+  fi
 }
 
 
