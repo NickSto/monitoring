@@ -10,7 +10,9 @@ Usage="Usage: \$ $(basename $0) [options] [goal] command [args]
 Options:
 -p: minutes to wait between checks (${PauseDefault} min by default)
 -s: the starting number, if continuing from a previous run.
--t: the starting time, if continuing from a previous run."
+-t: the starting time, if continuing from a previous run.
+-f: the whitespace-delimited field of the output to use as the integer
+    (1-based)."
 
 function main {
 
@@ -18,11 +20,13 @@ function main {
   pause="$PauseDefault"
   start=''
   start_time=''
-  while getopts ":p:s:t:h" opt; do
+  field=''
+  while getopts ":p:s:t:f:h" opt; do
     case "$opt" in
       p) pause="$OPTARG";;
       s) start="$OPTARG";;
       t) start_time="$OPTARG";;
+      f) field="$OPTARG";;
       h) fail "$Usage";;
     esac
   done
@@ -61,10 +65,17 @@ function main {
   if [[ $start_time ]] && ! isint "$start_time"; then
     fail "Error: -t time \"$start_time\" is not an integer."
   fi
+  if [[ $field ]] && ! isint "$field"; then
+    fail "Error: -f field \"$field\" is not an integer."
+  fi
 
   # Check initial state.
   if ! ([[ $start ]] && [[ $start_time ]]); then
-    start=$($command $args)
+    if [[ $field ]]; then
+      start=$($command $args | awk '{print $'$field'}')
+    else
+      start=$($command $args)
+    fi
     start_time=$(date +%s)
     if ! isint "$start"; then
       fail "Error: command '$command $args' failed or did not output an integer. Output:
@@ -85,7 +96,11 @@ $start"
     togo=$((goal-start))
   fi
   while [[ $togo -gt 0 ]]; do
-    current=$($command $args)
+    if [[ $field ]]; then
+      current=$($command $args | awk '{print $'$field'}')
+    else
+      current=$($command $args)
+    fi
     current_time=$(date +%s)
     if [[ $current == $start ]]; then
       echo "Still $current. No change yet."
