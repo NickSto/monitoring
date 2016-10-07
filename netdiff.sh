@@ -12,6 +12,7 @@ Monitor when IP connections are opened or closed. New connections are marked \"+
 Options:
 -w: How long to wait between checks. Default: $SleepDefault seconds.
 -n: Don't look up domain names for ip addresses (pass -n to lsof) (is much faster).
+-i: Shorthand for \"-T LISTEN,CLOSE_WAIT -D localhost -r TCP\".
 Filters:
 Use the lowercase to only watch those connections matching that particular criteria. If you want to
 give multiple values (e.g. you want to watch connections to google.com and localhost), give them as
@@ -47,7 +48,7 @@ function main {
   ignore_procs=
   ignore_dests=
   ignore_states=
-  while getopts ":w:ns:c:p:d:t:r:S:C:P:D:T:h" opt; do
+  while getopts ":w:ns:c:p:d:t:r:S:C:P:D:T:ih" opt; do
     case "$opt" in
       w) sleep="$OPTARG";;
       n) lsof_args="$lsof_args -n";;
@@ -62,6 +63,7 @@ function main {
       P) ignore_procs="$OPTARG";;
       D) ignore_dests="$OPTARG";;
       T) ignore_states="$OPTARG";;
+      i) ignore_states="LISTEN,CLOSE_WAIT"; ignore_dests="localhost"; protocols="TCP";;
       h) fail "$USAGE";;
     esac
   done
