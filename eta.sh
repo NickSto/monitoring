@@ -72,9 +72,9 @@ function main {
   # Check initial state.
   if ! ([[ $start ]] && [[ $start_time ]]); then
     if [[ $field ]]; then
-      start=$($command $args | awk '{print $'$field'}')
+      start=$(eval $command $args | awk '{print $'$field'}')
     else
-      start=$($command $args)
+      start=$(eval $command $args)
     fi
     start_time=$(date +%s)
     if ! isint "$start"; then
@@ -97,9 +97,9 @@ $start"
   fi
   while [[ $togo -gt 0 ]]; do
     if [[ $field ]]; then
-      current=$($command $args | awk '{print $'$field'}')
+      current=$(eval $command $args | awk '{print $'$field'}')
     else
-      current=$($command $args)
+      current=$(eval $command $args)
     fi
     current_time=$(date +%s)
     if [[ $current == $start ]]; then
