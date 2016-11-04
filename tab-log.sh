@@ -57,7 +57,16 @@ function main {
 
   # Read the number of tabs in each session and print the ones not already in the tabs log.
   for session in $session_dir/backup*.session; do
-    unixtime=$(stat -c "%Y" $session)
+    # Get the timestamp of the session file.
+    # Each file includes a line like "timestamp=1478232825328", so we can just eval that.
+    if time_line=$(grep -E '^timestamp=[0-9]+$' $session); then
+      eval "$time_line"
+      # It's in milliseconds, so divide by 1000.
+      unixtime=$((timestamp/1000))
+    else
+      echo "Warning: No timestamp found in session $session" >&2
+      continue
+    fi
     humantime=$(date -d @$unixtime)
     # If an entry already exists for this session (identified by its timestamp), don't add it again.
     # Have to unset -u to avoid an unbound variable error when $unixtime isn't in $entries. 
