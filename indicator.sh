@@ -40,8 +40,16 @@ function human_time {
   echo "$days_str$hr_str$min_str$sec_str"
 }
 
+# $ssid: Wifi SSID
+ssid=$(iwconfig 2> /dev/null | sed -nE 's/^.*SSID:"(.*)"\s*$/\1/pig' | head -n 1)
+ssid_disp=
+if [[ $ssid ]]; then
+  ssid_disp="[ $ssid ]"
+fi
+
 # $free: free disk space
-free=$(df -h | grep -E ' /$' | awk '{print $4}')
+# Shows free space for any mounted device under /dev that's not mounted under /boot.
+free=$(df -h | awk 'substr($1, 1, 5) == "/dev/" && substr($6, 1, 5) != "/boot" {printf("%s,", $4)}' | head -c -1)
 
 # $temp: CPU temperature
 temp=$(sensors | grep -A 3 '^coretemp-isa-0000' | tail -n 1 | awk '{print $3}' | sed -E -e 's/^\+//' -e 's/\.[0-9]+//')
@@ -108,4 +116,4 @@ if [[ $pid ]]; then
   fi
 fi
 
-echo "[ $free free ]$login_status$updisp[ $ping_str ][ $temp ]"
+echo "[ $free free ]$login_status$updisp[ $ping_str ][ $temp ]$ssid_disp"
