@@ -15,11 +15,14 @@ Options:
 -c: \"libsyn-paywall\" cookie allowing access to non-free episodes.
 -s: stop episode number (inclusive)."
 
-function main {
+if python -c 'import titlecase'; then
+  titlecase=true
+else
+  echo "Warning: Python module \"titlecase\" not installed. Defaulting to worse built-in version." >&2
+  titlecase=
+fi
 
-  if ! python -c 'import titlecase'; then
-    fail "Error: Python module \"titlecase\" not installed."
-  fi
+function main {
 
   # Parse arguments
   if [[ $# -lt 1 ]]; then
@@ -204,7 +207,11 @@ function get_mp3_name {
     echo "$title" | sed -En 's/^\s*([0-9]+).*$/\1/p'
   else
     # Otherwise, print a nicely formatted filename.
-    title="$(python -c 'import sys, titlecase; print titlecase.titlecase(sys.argv[1])' "$title")"
+    if [[ $titlecase ]]; then
+      title="$(python -c 'import sys, titlecase; print titlecase.titlecase(sys.argv[1])' "$title")"
+    else
+      title="$(python -c 'import sys; print sys.argv[1].title()' "$title")"
+    fi
     echo "WTF$title.mp3"
   fi
 }
