@@ -58,6 +58,10 @@ if ! [[ -d $(dirname "$log_file") ]]; then
   echo "Error: log file parent directory nonexistent: "$(dirname "$log_file") >&2
   exit 1
 fi
+if ! sensors >/dev/null 2>/dev/null; then
+  echo "Error: \"sensors\" command not present. Please install lm-sensors package." >&2
+  exit 1
+fi
 
 # Print an initial string of dots.
 # Also, build a string of characters to iterate over later on, to make the loop
@@ -78,9 +82,11 @@ fi
 # Main loop.
 while true; do
 
-  temp1=$(sensors | grep "$Line1Pattern" | sed -E "$TempRegex")
-  temp2=$(sensors | grep "$Line2Pattern" | sed -E "$TempRegex")
-  temp3=$(sensors | grep "$Line3Pattern" | sed -E "$TempRegex")
+  sensor_data=$(sensors)
+
+  temp1=$(echo "$sensor_data" | grep "$Line1Pattern" | sed -E "$TempRegex")
+  temp2=$(echo "$sensor_data" | grep "$Line2Pattern" | sed -E "$TempRegex")
+  temp3=$(echo "$sensor_data" | grep "$Line3Pattern" | sed -E "$TempRegex")
 
   if [[ "$log_file" ]]; then
     echo -en "$temp1\t$temp2\t$temp3\t" >> "$log_file"
@@ -90,13 +96,13 @@ while true; do
     date +%s
   fi
 
-  for i in $pause_str; do
-    if ! [[ "$log_file" ]]; then
+  if [[ "$log_file" ]]; then
+    sleep "$pause"
+  else
+    for i in $pause_str; do
       echo -n '.' 1>&2
-    fi
-    sleep 1
-  done
-  if ! [[ "$log_file" ]]; then
+      sleep 1
+    done
     echo -en '\t' 1>&2
   fi
 
