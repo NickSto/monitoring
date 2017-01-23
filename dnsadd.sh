@@ -21,11 +21,9 @@ function main {
   elif [[ $# == 1 ]]; then
     action="toggle"
     domain="$1"
-    restore='true'
   else
     action="$1"
     domain="$2"
-    restore=''
   fi
 
   if [[ ! -f "$ConfigFile" ]]; then
@@ -35,39 +33,20 @@ function main {
     fail "Error: Must run as root"
   fi
 
-  rounds=0
-  while [[ $rounds -lt 2 ]]; do
-    # Perform action.
-    if [[ $action == "add" ]]; then
-      add "$domain"
-    elif [[ $action == "rm" ]] || [[ $action == "remove" ]]; then
+  # Perform action.
+  if [[ $action == "add" ]]; then
+    add "$domain"
+  elif [[ $action == "rm" ]] || [[ $action == "remove" ]]; then
+    rm "$domain"
+  elif [[ $action == "toggle" ]]; then
+    if grep -q "^address=/$domain/" "$ConfigFile"; then
       rm "$domain"
-    elif [[ $action == "toggle" ]]; then
-      if grep -q "^address=/$domain/" "$ConfigFile"; then
-        rm "$domain"
-      else
-        add "$domain"
-      fi
     else
-      fail "Error: Unrecognized command \"$1\"."
+      add "$domain"
     fi
-    # Wait and restore on exit?
-    if [[ $restore ]]; then
-      if [[ $action == "add" ]]; then
-        action="rm"
-      elif [[ $action == "rm" ]]; then
-        action="add"
-      fi
-    else
-      exit 0
-    fi
-    rounds=$((rounds+1))
-    if [[ $rounds -lt 2 ]]; then
-      echo
-      echo "Press enter to restore previous state and exit."
-      read dummy
-    fi
-  done
+  else
+    fail "Error: Unrecognized command \"$1\"."
+  fi
 
 }
 
