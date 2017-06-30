@@ -31,7 +31,7 @@ function main {
   if [[ "$tabs_log" ]] && ! [[ -f "$tabs_log" ]]; then
     fail "Error: tabs log $tabs_log missing."
   fi
-  if ! [[ -f $SESSION_SCRIPT ]]; then
+  if ! [[ -x $SESSION_SCRIPT ]]; then
     fail "Error: script $SESSION_SCRIPT missing."
   fi
   if ! [[ -d $FIREFOX_DIR ]]; then
@@ -78,7 +78,7 @@ function main {
     # Get the number of tabs in the session: Total, and in the main (biggest) window.
     # The Python script will print a tab-delimited list of the number of tabs in each window.
     # Awk will find the biggest window and the total.
-    read main total <<< $(python $SESSION_SCRIPT -T $session \
+    read main total <<< $($SESSION_SCRIPT -T $session \
       | awk '{for (i=1; i<=NF; i++) {tot+=$i; if ($i > max) {max=$i}} print max, tot}')
     if [[ $main ]] && [[ $total ]]; then
       echo -e "$unixtime\t$main\t$total\t$humantime"
