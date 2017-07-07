@@ -8,18 +8,24 @@ set -ue
 Now=$(date +%s)
 DefaultTabsLog=$HOME/aa/misc/computerthings/logs/tabs.tsv
 DefaultStartTime=1490984789
-Usage="Usage: \$ $(basename $0) [-g] [-t tabs_log.tsv] [-s start_time]"
+Usage="Usage: \$ $(basename $0) [-g] [-t tabs_log.tsv] [-s start_time]
+-t: tabs log tsv
+-s: start timestamp
+-g: Use a zenity prompt to get the start time from the user.
+-u: Update the tabs log from the latest session files."
 
 function main {
 
   tabs_log="$DefaultTabsLog"
   start_time="$DefaultStartTime"
   gui=
-  while getopts ":gs:t:h" opt; do
+  update=
+  while getopts ":gus:t:h" opt; do
   case "$opt" in
       t) tabs_log="$OPTARG";;
       s) start_time=$OPTARG;;
       g) gui="true";;
+      u) update="true";;
       h) fail "$Usage";;
     esac
   done
@@ -38,6 +44,15 @@ function main {
     fi
   elif [[ $# -ge 2 ]]; then
     start_time=$2
+  fi
+
+  if [[ $update ]]; then
+    script_dir=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+    if [[ -s "$script_dir/tab-log.sh" ]]; then
+      bash "$script_dir/tab-log.sh" "$tabs_log" >> "$tabs_log"
+    else
+      fail "Error: Can't find tabs-log.sh at $script_dir"
+    fi
   fi
 
   # 1481753483 is the last entry with over a thousand tabs, before the big, automated cleanup.
