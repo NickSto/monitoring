@@ -12,7 +12,7 @@ Usage="Usage: \$ $(basename $0) [tabs_log.tsv]
 Print records of how many tabs I've had open in recent sessions in Firefox.
 This will read the Session Manager backup files from the default Firefox profile, parse them with
 my Python script, find how many tabs were open in each, and print the numbers in the format I use
-in my tabs log (e.g. ~/aa/misc/computerthings/logs/tabs.tsv).
+in my tabs log (e.g. ~/aa/computer/logs/tabs.tsv).
 If you give a tabs log as the first argument, it will omit sessions already in the log."
 
 function main {

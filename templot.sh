@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -ue
 SecondsDefault=5400  # 1.5 hours
-LogFile=$HOME/aa/misc/computerthings/logs/temp.log
+LogFile=$HOME/aa/computer/logs/temp.log
 PlotScript=$HOME/code/python/single/scatterplot.py
 Usage="Usage: \$ $(basename $0) [points or start_time] [end_time]
 Without any arguments, will show the last $SecondsDefault seconds ("$(python -c "print $SecondsDefault/60.0/60")" hours).

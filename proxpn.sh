@@ -6,7 +6,7 @@ fi
 set -ue
 
 Silence="$HOME/.local/share/nbsdata/SILENCE"
-ConfigFileDefault=~/aa/misc/computerthings/proxpn-config/proxpn.ovpn
+ConfigFileDefault=~/aa/computer/proxpn-config/proxpn.ovpn
 
 Usage="Usage: \$ $(basename $0) [openvpn/config.ovpn]"
 

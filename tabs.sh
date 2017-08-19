@@ -6,7 +6,7 @@ fi
 set -ue
 
 Now=$(date +%s)
-DefaultTabsLog=$HOME/aa/misc/computerthings/logs/tabs.tsv
+DefaultTabsLog=$HOME/aa/computer/logs/tabs.tsv
 DefaultStartTime=1490984789
 Usage="Usage: \$ $(basename $0) [-g] [-t tabs_log.tsv] [-s start_time]
 -t: tabs log tsv
