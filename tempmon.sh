@@ -20,7 +20,7 @@ set -ue
 
 
 PauseDefault=15
-Line1Pattern='^Physical id 0:'
+Line1Pattern='^Package id 0:'
 Line2Pattern='^Core 0:'
 Line3Pattern='^Core 1:'
 TempRegex='s/^.*:\s+[+-]([0-9]+)\.[0-9]+.C\s+\(.*$/\1/'
