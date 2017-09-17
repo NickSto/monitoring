@@ -48,11 +48,11 @@ function main {
   if [[ $start ]]; then
     start_time=$((now-start))
     end_time=$((now-end))
-    awk "\$4 > $start_time && \$4 < $end_time {print (\$4-$now)/60/60, \$1}" $LogFile \
+    awk -F '\t' "\$4 > $start_time && \$4 < $end_time {print (\$4-$now)/60/60, \$2}" $LogFile \
       | scatterplot.py -x 1 -y 2 -X 'Hours in past' -Y Celsius
   else
     tail -n $points $LogFile \
-      | awk '{print ($4-'$now')/60/60, $1}' \
+      | awk -F '\t' '{print ($4-'$now')/60/60, $2}' \
       | scatterplot.py -x 1 -y 2 -X 'Hours in past' -Y Celsius
   fi
 }
