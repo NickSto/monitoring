@@ -55,6 +55,9 @@ function main {
 
   # Determine the interface name of the default route.
   interface=$(ip route show 0/0 | awk '{print $5}')
+  if ! [[ $interface ]]; then
+    fail "Error: network interface name not detected. Check your connection?"
+  fi
   
   # Avoid IPv6 leaks
   if ! sysctl -w net.ipv6.conf.$interface.disable_ipv6=1; then
