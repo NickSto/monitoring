@@ -66,11 +66,9 @@ function main {
     esac
   fi
 
+  # Construct the format string (site-specific).
   format=
   if [[ $site == 'facebook' ]]; then
-    if [[ $convert_to ]]; then
-      fail "Error: -c not supported for Facebook."
-    fi
     url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
     if which pct >/dev/null 2>/dev/null; then
       url_escaped=$(pct encode "$url_escaped")
@@ -79,9 +77,7 @@ function main {
       url_escaped=$(echo "$url_escaped" | sed -E 's#/#%%2F#g')
     fi
     format="$title [src $url_escaped] [posted %(upload_date)s].%(ext)s"
-    youtube-dl --no-mtime "$url" -o "$format"
   elif [[ $site == 'youtube' ]]; then
-    # First define the format and check the resulting filename.
     format="$title [src %(uploader)s, %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
     uploader_id=$(youtube-dl --get-filename -o '%(uploader_id)s' "$url")
     # Only use both uploader and uploader_id if the id is a channel id like "UCZ5C1HBPMEcCA1YGQmqj6Iw"
@@ -89,24 +85,45 @@ function main {
       echo "uploader_id $uploader_id looks like a username, not a channel id. Omitting channel id.." >&2
       format="$title [src %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
     fi
-    filename=$(youtube-dl --get-filename -o "$format" "$url" $quality_args)
-    if [[ $get_filename ]]; then
-      echo $filename
-      return
+  fi
+
+  # Get the the resulting filename, then exit, if requested.
+  filename=$(youtube-dl --get-filename -o "$format" "$url" $quality_args)
+  if [[ $get_filename ]]; then
+    echo $filename
+    return
+  fi
+
+  # Do the actual downloading.
+  youtube-dl --no-mtime "$url" -o "$format" $quality_args
+
+  # Convert to the requested format (if any).
+  if [[ $convert_to ]]; then
+    convert "$filename" "$convert_to" "$quality"
+  fi
+}
+
+function convert {
+  dest_format="$1"
+  video_file="$2"
+  quality=5
+  if [[ $# -ge 3 ]]; then
+    quality=$3
+  fi
+  if [[ $dest_format == mp3 ]] || [[ $dest_format == ogg ]]; then
+    if [[ $quality -gt 15 ]]; then
+      fail "Error: for audio formats, give the quality in ffmpeg -aq numbers, not bitrate (I saw \"$quality\")."
     fi
-    # Do the actual downloading.
-    youtube-dl --no-mtime "$url" -o "$format" $quality_args
-    # Convert to the requested format (if any).
-    if [[ $convert_to ]]; then
-      if which ffmpeg >/dev/null 2>/dev/null; then
-        if ffmpeg -i "$filename" -aq 5 "$title.$convert_to"; then
-          echo "Converted to \"$title.$convert_to\"."
-          rm "$filename"
-        fi
-      else
-        fail "Error: ffmpeg not found."
-      fi
+    quality_args="-aq $quality"
+  fi
+  if which ffmpeg >/dev/null 2>/dev/null; then
+    if ffmpeg -i "$filename" $quality_args "$title.$convert_to"; then
+      echo "Converted to:"
+      ls -lFhAb "$title.$convert_to"
+      rm "$filename"
     fi
+  else
+    fail "Error: ffmpeg not found."
   fi
 }
 
