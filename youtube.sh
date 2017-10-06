@@ -99,16 +99,17 @@ function main {
 
   # Convert to the requested format (if any).
   if [[ $convert_to ]]; then
-    convert "$filename" "$convert_to" "$quality"
+    convert "$filename" "$convert_to" "$title" $quality
   fi
 }
 
 function convert {
-  dest_format="$1"
-  video_file="$2"
+  video_file="$1"
+  dest_format="$2"
+  title="$3"
   quality=5
-  if [[ $# -ge 3 ]]; then
-    quality=$3
+  if [[ $# -ge 4 ]]; then
+    quality=$4
   fi
   if [[ $dest_format == mp3 ]] || [[ $dest_format == ogg ]]; then
     if [[ $quality -gt 15 ]]; then
@@ -116,11 +117,21 @@ function convert {
     fi
     quality_args="-aq $quality"
   fi
+  # Sometimes the reported filename isn't the actual, final one.
+  # Seems to happen when it has to merge video and audio files into a .mkv.
+  if ! [[ -e "$video_file" ]]; then
+    new_video_file=$(echo "$video_file" | sed -E 's/\.[^.]+$/.mkv/')
+    if [[ -e "$new_video_file" ]]; then
+      video_file="$new_video_file"
+    else
+      fail "Error: Expected filename \"$video_file\" not found. Conversion failed."
+    fi
+  fi
   if which ffmpeg >/dev/null 2>/dev/null; then
-    if ffmpeg -i "$filename" $quality_args "$title.$convert_to"; then
+    if ffmpeg -i "$video_file" $quality_args "$title.$dest_format"; then
       echo "Converted to:"
-      ls -lFhAb "$title.$convert_to"
-      rm "$filename"
+      ls -lFhAb "$title.$dest_format"
+      rm "$video_file"
     fi
   else
     fail "Error: ffmpeg not found."
