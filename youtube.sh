@@ -10,7 +10,7 @@ set -ue
 #      -o "Dogs [src %(uploader)s, instagram.com%%2F%(uploader_id)s] [posted 20150628] [id %(id)s].%(ext)s"
 
 Usage="Usage: \$ $(basename $0)[options] url [title [quality]]
-Supports youtube.com and facebook.com.
+Supports youtube.com, facebook.com, and instagram.com.
 Options:
 -F: Just print the available video quality options.
 -n: Just print what the video filename would be, without downloading it.
@@ -36,39 +36,47 @@ function main {
   title=${@:$OPTIND+1:1}
   quality=${@:$OPTIND+2:1}
 
-  if ! [[ $title ]]; then
+  epilog=
+
+  if ! [[ "$title" ]]; then
     title='%(title)s'
   fi
 
-  if [[ $get_formats ]]; then
+  if [[ $get_formats ]] || [[ "$url" == '-F' ]] || [[ "$title" == '-F' ]]; then
     youtube-dl "$url" -F
     return
   fi
 
   site=
-  if echo "$url" | grep -qE '^((https?://)?www\.)?youtube\.com'; then
-    site='youtube'
-  elif echo "$url" | grep -qE '^((https?://)?www\.)?facebook\.com'; then
-    site='facebook'
-  else
-    fail "Error: Invalid url or domain is not youtube.com or facebook.com (in url \"$url\")."
+  for candidate in youtube facebook instagram; do
+    if echo "$url" | grep -qE '^((https?://)?www\.)?'$candidate'\.com'; then
+      site=$candidate
+      break
+    fi
+  done
+  if ! [[ $site ]]; then
+    fail "Error: Invalid url or domain is not youtube.com, facebook.com, or instagram.com (in url \"$url\")."
   fi
 
   quality_args=
   if [[ $quality ]]; then
-    case "$quality" in
-      360) quality_args='-f 18';;
-      640) quality_args='-f 18';;
-      480) quality_args='-f 135+250';;  # 80k audio, 480p video
-      720) quality_args='-f 22';;
-      1280) quality_args='-f 22';;
-      *) quality_args="-f $3";;
-    esac
+    if [[ $site == youtube ]]; then
+      case "$quality" in
+        360) quality_args='-f 18';;
+        640) quality_args='-f 18';;
+        480) quality_args='-f 135+250';;  # 80k audio, 480p video
+        720) quality_args='-f 22';;
+        1280) quality_args='-f 22';;
+        *) quality_args="-f $3";;
+      esac
+    else
+      echo "Warning: Quality only selectable for Youtube." >&2
+    fi
   fi
 
   # Construct the format string (site-specific).
   format=
-  if [[ $site == 'facebook' ]]; then
+  if [[ $site == facebook ]]; then
     url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
     if which pct >/dev/null 2>/dev/null; then
       url_escaped=$(pct encode "$url_escaped")
@@ -77,7 +85,7 @@ function main {
       url_escaped=$(echo "$url_escaped" | sed -E 's#/#%%2F#g')
     fi
     format="$title [src $url_escaped] [posted %(upload_date)s].%(ext)s"
-  elif [[ $site == 'youtube' ]]; then
+  elif [[ $site == youtube ]]; then
     format="$title [src %(uploader)s, %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
     uploader_id=$(youtube-dl --get-filename -o '%(uploader_id)s' "$url")
     # Only use both uploader and uploader_id if the id is a channel id like "UCZ5C1HBPMEcCA1YGQmqj6Iw"
@@ -85,6 +93,17 @@ function main {
       echo "uploader_id $uploader_id looks like a username, not a channel id. Omitting channel id.." >&2
       format="$title [src %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
     fi
+  elif [[ $site == instagram ]]; then
+    upload_date=$(youtube-dl --get-filename -o '%(upload_date)s' "$url")
+    if [[ $upload_date == NA ]]; then
+      posted=
+      epilog="$epilog
+No upload date could be obtained! You might want to put it in yourself:
+    [posted YYYYMMDD]"
+    else
+      posted=" [posted %(upload_date)s]"
+    fi
+    format="$title [src instagram.com%%2F%(uploader_id)s]$posted [id %(id)s].%(ext)s"
   fi
 
   # Get the the resulting filename, then exit, if requested.
@@ -101,6 +120,8 @@ function main {
   if [[ $convert_to ]]; then
     convert "$filename" "$convert_to" "$title" $quality
   fi
+
+  echo "$epilog" >&2
 }
 
 function convert {
