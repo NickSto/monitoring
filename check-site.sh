@@ -5,7 +5,7 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-SilenceFile="$HOME/.local/share/data/nbsdata/SILENCE"
+SilenceFile="$HOME/.local/share/nbsdata/SILENCE"
 EmptyHash=d41d8cd98f00b204e9800998ecf8427e
 
 Usage="Usage: \$ $(basename $0) url hash [page_title]
