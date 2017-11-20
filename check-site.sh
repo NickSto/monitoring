@@ -8,13 +8,13 @@ set -ue
 SilenceFile="$HOME/.local/share/nbsdata/SILENCE"
 EmptyHash=d41d8cd98f00b204e9800998ecf8427e
 
-Usage="Usage: \$ $(basename $0) url hash [page_title]
+Usage="Usage: \$ $(basename $0) url [hash [page_title]]
 Check if a webpage has been updated based on its md5sum.
 The page_title will be used in output messages. The url will be used by default.
-Get the current hash with \$ curl -s [url] | md5sum"
+Get the current hash with \$ $(basename $0) url (which just runs \"\$ curl -s url | md5sum\")"
 
 function main {
-  if [[ $# -lt 2 ]] || [[ $1 == '-h' ]]; then
+  if [[ $# -lt 1 ]] || [[ $1 == '-h' ]]; then
     fail "$Usage"
   fi
 
@@ -23,7 +23,10 @@ function main {
   fi
 
   url="$1"
-  expected_hash="$2"
+  expected_hash=
+  if [[ $# -ge 2 ]]; then
+    expected_hash="$2"
+  fi
   if [[ $# -ge 3 ]]; then
     title="$3"
   else
@@ -32,7 +35,9 @@ function main {
 
   observed_hash=$(curl -s "$url" | md5sum | awk '{print $1}')
 
-  if [[ $observed_hash == $expected_hash ]]; then
+  if ! [[ $expected_hash ]]; then
+    echo "$observed_hash"
+  elif [[ $observed_hash == $expected_hash ]]; then
     printf "No change in $title\n" >&2
   elif [[ $observed_hash == $EmptyHash ]]; then
     printf "Error: Empty response from $url\n" >&2
