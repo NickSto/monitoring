@@ -10,24 +10,30 @@ set -ue
 #      -o "Dogs [src %(uploader)s, instagram.com%%2F%(uploader_id)s] [posted 20150628] [id %(id)s].%(ext)s"
 
 ValidConversions='mp3 m4a flac aac wav'
-Usage="Usage: \$ $(basename $0) [options] url [title [quality]]
+Usage="Usage: \$ $(basename $0) [options] url [title]
 Supports youtube.com, facebook.com, and instagram.com.
 Options:
 -F: Just print the available video quality options.
 -n: Just print what the video filename would be, without downloading it.
 -c: Give a file extension to convert the video to this audio format. The file
-    will be named \$title.\$ext. Options: $ValidConversions"
+    will be named \$title.\$ext. Options: $ValidConversions
+-f: Quality of video to download. Here are the known resolutions and their aliases:
+    640x360:  18
+    640x480:  135
+    1280x720: 22"
 
 function main {
   # Parse arguments.
   get_formats=
   get_filename=
   convert_to=
-  while getopts ":Fnc:h" opt; do
+  quality=
+  while getopts ":Fnc:f:h" opt; do
     case "$opt" in
       F) get_formats=true;;
       n) get_filename=true;;
       c) convert_to=$OPTARG;;
+      f) quality=$OPTARG;;
       h) echo "$Usage" >&2
          return 1;;
     esac
@@ -35,7 +41,6 @@ function main {
   # Get positionals.
   url=${@:$OPTIND:1}
   title=${@:$OPTIND+1:1}
-  quality=${@:$OPTIND+2:1}
 
   epilog=
 
