@@ -9,13 +9,14 @@ set -ue
 #      youtube-dl 'https://www.instagram.com/p/4fvpqXMKGn/'
 #      -o "Dogs [src %(uploader)s, instagram.com%%2F%(uploader_id)s] [posted 20150628] [id %(id)s].%(ext)s"
 
-Usage="Usage: \$ $(basename $0)[options] url [title [quality]]
+ValidConversions='mp3 m4a flac aac wav'
+Usage="Usage: \$ $(basename $0) [options] url [title [quality]]
 Supports youtube.com, facebook.com, and instagram.com.
 Options:
 -F: Just print the available video quality options.
 -n: Just print what the video filename would be, without downloading it.
--c: Give a file extension to convert the video to this file format using ffmpeg, then delete the
-    video. The mp3 file will be named \$title.\$ext."
+-c: Give a file extension to convert the video to this audio format. The file
+    will be named \$title.\$ext. Options: $ValidConversions"
 
 function main {
   # Parse arguments.
@@ -74,9 +75,27 @@ function main {
     fi
   fi
 
+  conversion_args=
+  if [[ $convert_to ]]; then
+    valid=
+    for conversion in $ValidConversions; do
+      if [[ $convert_to == $conversion ]]; then
+        valid=true
+        break
+      fi
+    done
+    if [[ $valid ]]; then
+      conversion_args="--extract-audio --audio-format $convert_to"
+    else
+      fail "Error: Invalid conversion target \"$convert_to\"."
+    fi
+  fi
+
   # Construct the format string (site-specific).
   format=
-  if [[ $site == facebook ]]; then
+  if [[ $convert_to ]]; then
+    format="$title.%(ext)s"
+  elif [[ $site == facebook ]]; then
     url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
     if which pct >/dev/null 2>/dev/null; then
       url_escaped=$(pct encode "$url_escaped")
@@ -107,56 +126,15 @@ No upload date could be obtained! You might want to put it in yourself:
   fi
 
   # Get the the resulting filename, then exit, if requested.
-  filename=$(youtube-dl --get-filename -o "$format" "$url" $quality_args)
   if [[ $get_filename ]]; then
-    echo $filename
+    youtube-dl --get-filename -o "$format" "$url" $conversion_args $quality_args
     return
   fi
 
   # Do the actual downloading.
-  youtube-dl --no-mtime "$url" -o "$format" $quality_args
-
-  # Convert to the requested format (if any).
-  if [[ $convert_to ]]; then
-    convert "$filename" "$convert_to" "$title" $quality
-  fi
+  youtube-dl --no-mtime --xattrs "$url" -o "$format" $conversion_args $quality_args
 
   echo "$epilog" >&2
-}
-
-function convert {
-  video_file="$1"
-  dest_format="$2"
-  title="$3"
-  quality=5
-  if [[ $# -ge 4 ]]; then
-    quality=$4
-  fi
-  if [[ $dest_format == mp3 ]] || [[ $dest_format == ogg ]]; then
-    if [[ $quality -gt 15 ]]; then
-      fail "Error: for audio formats, give the quality in ffmpeg -aq numbers, not bitrate (I saw \"$quality\")."
-    fi
-    quality_args="-aq $quality"
-  fi
-  # Sometimes the reported filename isn't the actual, final one.
-  # Seems to happen when it has to merge video and audio files into a .mkv.
-  if ! [[ -e "$video_file" ]]; then
-    new_video_file=$(echo "$video_file" | sed -E 's/\.[^.]+$/.mkv/')
-    if [[ -e "$new_video_file" ]]; then
-      video_file="$new_video_file"
-    else
-      fail "Error: Expected filename \"$video_file\" not found. Conversion failed."
-    fi
-  fi
-  if which ffmpeg >/dev/null 2>/dev/null; then
-    if ffmpeg -i "$video_file" $quality_args "$title.$dest_format"; then
-      echo "Converted to:"
-      ls -lFhAb "$title.$dest_format"
-      rm "$video_file"
-    fi
-  else
-    fail "Error: ffmpeg not found."
-  fi
 }
 
 function fail {
