@@ -31,8 +31,11 @@ function main {
   if ! is_int $lower; then
     fail "Error: lower threshold given ($lower) not a valid integer."
   fi
+  # If the bounds were given in the wrong order, just swap them.
   if [[ $lower -ge $upper ]]; then
-    fail "Error: upper threshold must be greater than lower threshold. (Saw \"$upper\", \"$lower\")."
+    tmp=$upper
+    upper=$lower
+    lower=$tmp
   fi
 
   data=$(curl -s 'https://api.coindesk.com/v1/bpi/currentprice.json')
