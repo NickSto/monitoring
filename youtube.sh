@@ -24,6 +24,9 @@ Options:
 
 function main {
   # Parse arguments.
+  if [[ $# -ge 1 ]] && [[ $1 == '--help' ]]; then
+    fail "$Usage"
+  fi
   get_formats=
   get_filename=
   convert_to=
@@ -34,13 +37,15 @@ function main {
       n) get_filename=true;;
       c) convert_to=$OPTARG;;
       f) quality=$OPTARG;;
-      h) echo "$Usage" >&2
-         return 1;;
+      h) fail "$Usage";;
     esac
   done
   # Get positionals.
   url=${@:$OPTIND:1}
   title=${@:$OPTIND+1:1}
+  if [[ $(($#-OPTIND)) -ge 2 ]]; then
+    fail "$Usage"
+  fi
 
   epilog=
 
