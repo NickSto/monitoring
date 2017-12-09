@@ -105,6 +105,14 @@ function main {
   format=
   if [[ $convert_to ]]; then
     format="$title.%(ext)s"
+  elif [[ $site == youtube ]]; then
+    format="$title [src %(uploader)s, %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
+    uploader_id=$(youtube-dl --get-filename -o '%(uploader_id)s' "$url")
+    # Only use both uploader and uploader_id if the id is a channel id like "UCZ5C1HBPMEcCA1YGQmqj6Iw"
+    if ! echo "$uploader_id" | grep -qE '^UC[a-zA-Z0-9_-]{22}$'; then
+      echo "uploader_id $uploader_id looks like a username, not a channel id. Omitting channel id.." >&2
+      format="$title [src %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
+    fi
   elif [[ $site == facebook ]]; then
     url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
     if which pct >/dev/null 2>/dev/null; then
@@ -114,14 +122,6 @@ function main {
       url_escaped=$(echo "$url_escaped" | sed -E 's#/#%%2F#g')
     fi
     format="$title [src $url_escaped] [posted %(upload_date)s].%(ext)s"
-  elif [[ $site == youtube ]]; then
-    format="$title [src %(uploader)s, %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
-    uploader_id=$(youtube-dl --get-filename -o '%(uploader_id)s' "$url")
-    # Only use both uploader and uploader_id if the id is a channel id like "UCZ5C1HBPMEcCA1YGQmqj6Iw"
-    if ! echo "$uploader_id" | grep -qE '^UC[a-zA-Z0-9_-]{22}$'; then
-      echo "uploader_id $uploader_id looks like a username, not a channel id. Omitting channel id.." >&2
-      format="$title [src %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
-    fi
   elif [[ $site == instagram ]]; then
     upload_date=$(youtube-dl --get-filename -o '%(upload_date)s' "$url")
     if [[ $upload_date == NA ]]; then
