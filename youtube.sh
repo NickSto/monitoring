@@ -5,13 +5,9 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-#TODO: Instagram:
-#      youtube-dl 'https://www.instagram.com/p/4fvpqXMKGn/'
-#      -o "Dogs [src %(uploader)s, instagram.com%%2F%(uploader_id)s] [posted 20150628] [id %(id)s].%(ext)s"
-
 ValidConversions='mp3 m4a flac aac wav'
 Usage="Usage: \$ $(basename $0) [options] url [title]
-Supports youtube.com, facebook.com, and instagram.com.
+Supports youtube.com, vimeo.com, facebook.com, and instagram.com.
 Options:
 -F: Just print the available video quality options.
 -n: Just print what the video filename would be, without downloading it.
@@ -59,8 +55,8 @@ function main {
   fi
 
   site=
-  for candidate in youtube facebook instagram; do
-    if echo "$url" | grep -qE '^((https?://)?www\.)?'$candidate'\.com'; then
+  for candidate in youtube vimeo facebook instagram; do
+    if echo "$url" | grep -qE '^(https?://)?(www\.)?'$candidate'\.com'; then
       site=$candidate
       break
     fi
@@ -113,14 +109,11 @@ function main {
       echo "uploader_id $uploader_id looks like a username, not a channel id. Omitting channel id.." >&2
       format="$title [src %(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
     fi
+  elif [[ $site == vimeo ]]; then
+    format="$title [src vimeo.com%%2F%(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
   elif [[ $site == facebook ]]; then
     url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
-    if which pct >/dev/null 2>/dev/null; then
-      url_escaped=$(pct encode "$url_escaped")
-      url_escaped=$(echo "$url_escaped" | sed -E 's#%#%%#g')
-    else
-      url_escaped=$(echo "$url_escaped" | sed -E 's#/#%%2F#g')
-    fi
+    url_escaped=$(url_double_escape "$url_escaped")
     format="$title [src $url_escaped] [posted %(upload_date)s].%(ext)s"
   elif [[ $site == instagram ]]; then
     upload_date=$(youtube-dl --get-filename -o '%(upload_date)s' "$url")
@@ -146,6 +139,18 @@ No upload date could be obtained! You might want to put it in yourself:
 
   echo "$epilog" >&2
 }
+
+
+function url_double_escape {
+  # Escape non-url safe characters.
+  # Double-escape them because % is a special character in the youtube-dl -o format string.
+  if which pct >/dev/null 2>/dev/null; then
+    pct encode "$1" | sed -E 's#%#%%#g'
+  else
+    echo "$1" | sed -E 's#/#%%2F#g'
+  fi
+}
+
 
 function fail {
   echo "$@" >&2
