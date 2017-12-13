@@ -135,6 +135,7 @@ No upload date could be obtained! You might want to put it in yourself:
   fi
 
   # Do the actual downloading.
+  echo '$ youtube-dl --no-mtime --xattrs "'"$url"'" -o "'"$format"'"' $conversion_args $quality_args
   youtube-dl --no-mtime --xattrs "$url" -o "$format" $conversion_args $quality_args
 
   echo "$epilog" >&2
