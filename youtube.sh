@@ -74,7 +74,7 @@ function main {
         480) quality_args='-f 135+250';;  # 80k audio, 480p video
         720) quality_args='-f 22';;
         1280) quality_args='-f 22';;
-        *) quality_args="-f $3";;
+        *) quality_args="-f $quality";;
       esac
     else
       echo "Warning: Quality only selectable for Youtube." >&2
@@ -135,8 +135,8 @@ No upload date could be obtained! You might want to put it in yourself:
   fi
 
   # Do the actual downloading.
-  echo '$ youtube-dl --no-mtime --xattrs "'"$url"'" -o "'"$format"'"' $conversion_args $quality_args
-  youtube-dl --no-mtime --xattrs "$url" -o "$format" $conversion_args $quality_args
+  echo "\$ youtube-dl --no-mtime --xattrs $conversion_args $quality_args '$url' -o '$format'"
+  youtube-dl --no-mtime --xattrs $conversion_args $quality_args "$url" -o "$format"
 
   echo "$epilog" >&2
 }
