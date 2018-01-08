@@ -7,7 +7,7 @@ set -ue
 
 ValidConversions='mp3 m4a flac aac wav'
 Usage="Usage: \$ $(basename $0) [options] url [title]
-Supports youtube.com, vimeo.com, facebook.com, and instagram.com.
+Supports youtube.com, vimeo.com, facebook.com, instagram.com, and twitter.com.
 Options:
 -F: Just print the available video quality options.
 -n: Just print what the video filename would be, without downloading it.
@@ -55,14 +55,15 @@ function main {
   fi
 
   site=
-  for candidate in youtube vimeo facebook instagram; do
+  for candidate in youtube vimeo facebook instagram twitter; do
     if echo "$url" | grep -qE '^(https?://)?(www\.)?'$candidate'\.com'; then
       site=$candidate
       break
     fi
   done
   if ! [[ $site ]]; then
-    fail "Error: Invalid url or domain is not youtube.com, facebook.com, or instagram.com (in url \"$url\")."
+    fail "Error: Invalid url or domain is not youtube.com, vimeo.com, facebook.com, instagram.com, or
+twitter.com (in url \"$url\")."
   fi
 
   quality_args=
@@ -115,7 +116,7 @@ function main {
     url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
     url_escaped=$(url_double_escape "$url_escaped")
     format="$title [src $url_escaped] [posted %(upload_date)s].%(ext)s"
-  elif [[ $site == instagram ]]; then
+  elif [[ $site == instagram ]] || [[ $site == twitter ]]; then
     upload_date=$(youtube-dl --get-filename -o '%(upload_date)s' "$url")
     if [[ $upload_date == NA ]]; then
       posted=
@@ -125,7 +126,11 @@ No upload date could be obtained! You might want to put it in yourself:
     else
       posted=" [posted %(upload_date)s]"
     fi
-    format="$title [src instagram.com%%2F%(uploader_id)s]$posted [id %(id)s].%(ext)s"
+    if [[ $site == instagram ]]; then
+      format="$title [src instagram.com%%2F%(uploader_id)s]$posted [id %(id)s].%(ext)s"
+    elif [[ $site == twitter ]]; then
+      format="$title [src twitter.com%%2F%(uploader_id)s]$posted [id %(id)s].%(ext)s"
+    fi
   fi
 
   # Get the the resulting filename, then exit, if requested.
