@@ -32,17 +32,17 @@ function main {
     if [[ $size == 4000787030016 ]] && [[ ${name:${#name}-1:1} != 1 ]]; then
       # The 4TB drive.
       echo 'Starting on 4TB drive..'
-      vc_unmount /dev/$name
+      vc_unmount /dev/$name /media/veracrypt1
       echo "$password" | vc_mount /dev/$name /media/veracrypt1
     elif [[ $size == 2000396289024 ]] && [[ ${name:${#name}-1:1} == 1 ]]; then
       # The 2TB drive.
       echo 'Starting on 2TB drive..'
-      vc_unmount /dev/$name
+      vc_unmount /dev/$name /media/veracrypt2
       echo "$password" | vc_mount /dev/$name /media/veracrypt2 truecrypt
     elif [[ $size == 500105217024 ]] && [[ ${name:${#name}-1:1} == 1 ]]; then
       # The 500GB drive.
       echo 'Starting on 500GB drive..'
-      vc_unmount /dev/$name
+      vc_unmount /dev/$name /media/veracrypt3
       echo "$password" | vc_mount /dev/$name /media/veracrypt3 truecrypt
     fi
   done < <(lsblk -lb)
@@ -51,12 +51,13 @@ function main {
 
 function vc_unmount {
   device=$1
+  mount=$2
   set +e
-  mounted_volumes=$(veracrypt -t -l)
+  mounted_volumes=$(veracrypt -t -l 2>/dev/null)
   set -e
-  echo "$mounted_volumes" | while read slot this_device mapper mount; do
-    if [[ $this_device == $device ]]; then
-      echo 'Unmounting..'
+  echo "$mounted_volumes" | while read slot this_device mapper this_mount; do
+    if [[ $this_mount == $mount ]]; then
+      echo "Unmounting $this_device from $mount.."
       veracrypt -t -d $mount
       return
     fi
@@ -74,7 +75,7 @@ function vc_mount {
     tc_arg=
   fi
   slot=$(find_slot)
-  echo 'Mounting..'
+  echo "Mounting $device on $mount in slot $slot.."
   veracrypt -t $tc_arg --stdin --non-interactive --slot=$slot -k '' --protect-hidden=no \
     $device $mount
 }
@@ -89,7 +90,7 @@ function find_slot {
     # Remove trailing :.
     slot=${slot%:}
     used_slots[$slot]=true
-  done < <(veracrypt -t -l)
+  done < <(veracrypt -t -l 2>/dev/null)
   set -e
   # Then look for one that isn't used.
   set +u
