@@ -77,20 +77,26 @@ function vc_mount {
   else
     tc_arg=
   fi
+  read password
   slot=$(find_slot)
   echo "Mounting $device on $mount in slot $slot.."
   set +e
-  err=$(veracrypt -t $tc_arg --stdin --non-interactive --slot=$slot -k '' --protect-hidden=no \
-        $device $mount 2>&1)
+  err=$(echo "$password" | veracrypt -t $tc_arg --stdin --non-interactive --slot=$slot -k '' \
+        --protect-hidden=no $device $mount 2>&1)
   set -e
+  sleep 1
   while [[ "$err" == 'Error: Volume slot unavailable.' ]] && [[ "$slot" -le 64 ]]; do
     slot=$((slot+1))
     echo "Warning: slot $((slot-1)) occupied. Retrying with slot $slot.."
     set +e
-    err=$(veracrypt -t $tc_arg --stdin --non-interactive --slot=$slot -k '' --protect-hidden=no \
-          $device $mount 2>&1)
+    err=$(echo "$password" | veracrypt -t $tc_arg --stdin --non-interactive --slot=$slot -k '' \
+          --protect-hidden=no $device $mount 2>&1)
     set -e
+    sleep 1
   done
+  if [[ "$err" ]]; then
+    echo "$err" >&2
+  fi
 }
 
 
