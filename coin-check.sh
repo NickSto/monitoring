@@ -8,6 +8,7 @@ set -ue
 DataDir="$HOME/.local/share/nbsdata"
 SilenceFile="$DataDir/SILENCE"
 ThresFile="$DataDir/coin-price.txt"
+PidFile="$DataDir/coin-check.pid"
 
 Usage="Usage: \$ $(basename $0) [upper [lower]]
 Check the price of bitcoin and send a notification if it's above (or below) a
@@ -21,6 +22,16 @@ function main {
   if [[ -e "$SilenceFile" ]]; then
     fail "Error: SILENCE file is present ($Silence). Cannot continue."
   fi
+
+  if [[ -f "$PidFile" ]]; then
+    last_pid=$(cat "$PidFile")
+    set +e
+    if ps -o comm="" -p "$last_pid" 2>/dev/null >/dev/null; then
+      fail "Error: An instance is already running at pid $last_pid"
+    fi
+    set -e
+  fi
+  echo $$ > "$PidFile"
 
   current=
   if [[ $# == 0 ]]; then
