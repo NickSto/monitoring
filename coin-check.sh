@@ -5,14 +5,16 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-SilenceFile="$HOME/.local/share/nbsdata/SILENCE"
+DataDir="$HOME/.local/share/nbsdata"
+SilenceFile="$DataDir/SILENCE"
+ThresFile="$DataDir/coin-price.txt"
 
-Usage="Usage: \$ $(basename $0) upper [lower]
+Usage="Usage: \$ $(basename $0) [upper [lower]]
 Check the price of bitcoin and send a notification if it's above (or below) a
 certain price threshold."
 
 function main {
-  if [[ $# -lt 1 ]] || [[ $1 == '-h' ]]; then
+  if [[ $# -ge 1 ]] && ([[ $1 == '-h' ]] || [[ $1 == '--help' ]]); then
     fail "$Usage"
   fi
 
@@ -20,22 +22,37 @@ function main {
     fail "Error: SILENCE file is present ($Silence). Cannot continue."
   fi
 
-  upper="$1"
-  lower=0
-  if [[ $# -ge 2 ]]; then
-    lower="$2"
-  fi
-  if ! is_int $upper; then
-    fail "Error: upper threshold given ($upper) not a valid integer."
-  fi
-  if ! is_int $lower; then
-    fail "Error: lower threshold given ($lower) not a valid integer."
-  fi
-  # If the bounds were given in the wrong order, just swap them.
-  if [[ $lower -ge $upper ]]; then
-    tmp=$upper
-    upper=$lower
-    lower=$tmp
+  current=
+  if [[ $# == 0 ]]; then
+    if [[ -s "$ThresFile" ]]; then
+      current=$(cat "$ThresFile")
+      if ! is_int "$current"; then
+        current=
+      fi
+    fi
+    if ! [[ "$current" ]]; then
+      fail "Error: Couldn't get a valid price from file \"$ThresFile\""
+    fi
+    upper=$((current+1000))
+    lower=$((current-1000))
+  else
+    upper="$1"
+    lower=0
+    if [[ $# -ge 2 ]]; then
+      lower="$2"
+    fi
+    if ! is_int $upper; then
+      fail "Error: upper threshold given ($upper) not a valid integer."
+    fi
+    if ! is_int $lower; then
+      fail "Error: lower threshold given ($lower) not a valid integer."
+    fi
+    # If the bounds were given in the wrong order, just swap them.
+    if [[ $lower -ge $upper ]]; then
+      tmp=$upper
+      upper=$lower
+      lower=$tmp
+    fi
   fi
 
   data=$(curl -s 'https://api.coindesk.com/v1/bpi/currentprice.json')
@@ -45,10 +62,10 @@ function main {
     if [[ $price ]] && is_int $price; then
       if [[ $price -gt $upper ]]; then
         echo "Price above threshold: $price > $upper"
-        notify-send -i important "Bitcoin at \$$price" "It's above $upper!"
+        zenity --warning --title "Bitcoin at \$$price" --text "It's above $upper!    " 2>/dev/null
       elif [[ $price -lt $lower ]]; then
         echo "Price below threshold: $price < $lower"
-        notify-send -i important "Bitcoin at \$$price" "It's below $lower!"
+        zenity --warning --title "Bitcoin at \$$price" --text "It's below $lower!    " 2>/dev/null
       else
         echo "Price in range $lower <= $price <= $upper" >&2
       fi
@@ -58,6 +75,12 @@ $data"
     fi
   else
     fail "Error obtaining price data from API."
+  fi
+
+  if [[ "$current" ]]; then
+    # Get the price floored to the last $1000 (e.g. 9734 -> 9000).
+    current=$((1000*(price/1000)))
+    echo "$current" > "$ThresFile"
   fi
 }
 
