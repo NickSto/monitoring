@@ -33,6 +33,14 @@ function main {
   fi
   echo $$ > "$PidFile"
 
+  # Debug mode: Simulate receiving a price from the API.
+  debug=
+  if [[ $# == 2 ]] && [[ "$1" == '-D' ]]; then
+    debug="$2"
+    shift 2
+  fi
+
+  # Get the price thresholds.
   current=
   if [[ $# == 0 ]]; then
     if [[ -s "$ThresFile" ]]; then
@@ -68,15 +76,22 @@ function main {
 
   data=$(curl -s 'https://api.coindesk.com/v1/bpi/currentprice.json')
 
+  changed=
   if [[ $data ]]; then
-    price=$(echo "$data" | jq .bpi.USD.rate_float | cut -d . -f 1)
+    if [[ "$debug" ]]; then
+      price="$debug"
+    else
+      price=$(echo "$data" | jq .bpi.USD.rate_float | cut -d . -f 1)
+    fi
     if [[ $price ]] && is_int $price; then
       if [[ $price -gt $upper ]]; then
         echo "Price above threshold: $price > $upper"
         zenity --warning --title "Bitcoin at \$$price" --text "It's above $upper!    " 2>/dev/null
+        changed=true
       elif [[ $price -lt $lower ]]; then
         echo "Price below threshold: $price < $lower"
         zenity --warning --title "Bitcoin at \$$price" --text "It's below $lower!    " 2>/dev/null
+        changed=true
       else
         echo "Price in range $lower <= $price <= $upper" >&2
       fi
@@ -88,7 +103,7 @@ $data"
     fail "Error obtaining price data from API."
   fi
 
-  if [[ "$current" ]]; then
+  if [[ "$changed" ]] && [[ "$current" ]]; then
     # Get the price floored to the last $1000 (e.g. 9734 -> 9000).
     current=$((1000*(price/1000)))
     echo "$current" > "$ThresFile"
