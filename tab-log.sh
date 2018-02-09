@@ -5,10 +5,10 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-SESSION_SCRIPT=$HOME/code/python/single/session-manager.py
-FIREFOX_DIR=$HOME/.mozilla/firefox
+SessionScript=${SessionScript:-$HOME/code/python/single/session-manager.py}
+FirefoxDir=${FirefoxDir:-$HOME/.mozilla/firefox}
 
-Usage="Usage: \$ $(basename $0) [tabs_log.tsv]
+Usage="Usage: \$ $(basename $0) [tabs_log.tsv [firefox/profile/dir]]
 Print records of how many tabs I've had open in recent sessions in Firefox.
 This will read the Session Manager backup files from the default Firefox profile, parse them with
 my Python script, find how many tabs were open in each, and print the numbers in the format I use
@@ -26,25 +26,31 @@ function main {
       tabs_log="$1"
     fi
   fi
+  session_dir=
+  if [[ $# -ge 2 ]]; then
+    session_dir="$2/sessions"
+  fi
 
   # Check that required paths exist
   if [[ "$tabs_log" ]] && ! [[ -f "$tabs_log" ]]; then
     fail "Error: tabs log $tabs_log missing."
   fi
-  if ! [[ -x $SESSION_SCRIPT ]]; then
-    fail "Error: script $SESSION_SCRIPT missing."
+  if ! [[ -x "$SessionScript" ]]; then
+    fail "Error: script $SessionScript missing."
   fi
-  if ! [[ -d $FIREFOX_DIR ]]; then
-    fail "Error: Firefox directory $FIREFOX_DIR missing."
+  if ! [[ -d "$FirefoxDir" ]]; then
+    fail "Error: Firefox directory "$FirefoxDir" missing."
   fi
 
   # Find the sessions directory for the default profile.
-  if [[ $(ls -d1 $FIREFOX_DIR/*.default | wc -l) != 1 ]]; then
-    fail "Error: Need exactly one match for $FIREFOX_DIR/*.default"
-  fi
-  session_dir=$(ls -d $FIREFOX_DIR/*.default/sessions)
-  if ! [[ -d $session_dir ]]; then
-    fail "Error: Sessions directory $session_dir missing."
+  if ! [[ "$session_dir" ]]; then
+    if [[ $(ls -d1 "$FirefoxDir/"*.default | wc -l) != 1 ]]; then
+      fail "Error: Need exactly one match for "$FirefoxDir"/*.default"
+    fi
+    session_dir=$(ls -d "$FirefoxDir"/*.default/sessions)
+    if ! [[ -d $session_dir ]]; then
+      fail "Error: Sessions directory $session_dir missing."
+    fi
   fi
 
   # Read existing entries from the tabs log.
@@ -78,7 +84,7 @@ function main {
     # Get the number of tabs in the session: Total, and in the main (biggest) window.
     # The Python script will print a tab-delimited list of the number of tabs in each window.
     # Awk will find the biggest window and the total.
-    read main total <<< $($SESSION_SCRIPT -T $session \
+    read main total <<< $("$SessionScript" -T $session \
       | awk '{for (i=1; i<=NF; i++) {tot+=$i; if ($i > max) {max=$i}} print max, tot}')
     if [[ $main ]] && [[ $total ]]; then
       echo -e "$unixtime\t$main\t$total\t$humantime"
