@@ -24,16 +24,21 @@ my Python script, find how many tabs were open in each, and print the numbers in
 in my tabs log (e.g. ~/aa/computer/logs/tabs.tsv).
 If you give a tabs log as the first argument, it will omit sessions already in the log.
 Options:
--p: Your Firefox profile directory."
+-p: Your Firefox profile directory.
+-n: Read your current, open session (from recovery.jsonlz4, updated while your session is open).
+-l: Read your last closed session (from previous.jsonlz4, updated at the end of every session)."
 
 function main {
 
   # Read arguments.
+  stage="last"
   session_dir=
-  while getopts ":p:h" opt; do
+  while getopts ":p:nlh" opt; do
   case "$opt" in
+      n) stage="now";;
+      l) stage="last";;
       p) session_dir="$OPTARG/sessionstore-backups";;
-      h) echo "$USAGE"
+      h) echo "$USAGE" >&2
          exit;;
     esac
   done
@@ -63,7 +68,11 @@ function main {
     fi
   fi
 
-  session_file="$session_dir/previous.jsonlz4"
+  if [[ "$stage" == now ]]; then
+    session_file="$session_dir/recovery.jsonlz4"
+  elif [[ "$stage" == last ]]; then
+    session_file="$session_dir/previous.jsonlz4"
+  fi
 
   if ! [[ -f "$session_file" ]]; then
     fail "Error: Could not find session file $session_file"
@@ -82,7 +91,7 @@ function main {
   read main total <<< $("$SessionScript" -T "$session_file" | awk "$AwkScript")
 
   humantime=$(date -d @$modified)
-  echo -e "$modified\t$main\t$total\t$humantime"
+  echo -e "$modified\t$main\t$total\t$humantime\t$stage"
 }
 
 function get_default_profile {
