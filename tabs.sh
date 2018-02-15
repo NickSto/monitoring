@@ -56,7 +56,8 @@ function main {
   fi
 
   # 1481753483 is the last entry with over a thousand tabs, before the big, automated cleanup.
-  awk '$1 >= '$start_time' {print ($1-'$(date +%s)')/60/60/24/30.5, $2}' "$tabs_log" \
+  awk -F '\t' '$1 >= '$start_time' && $5 != "now" {print ($1-'$(date +%s)')/60/60/24/30.5, $2}' \
+      "$tabs_log" \
     | scatterplot.py -T 'Tabs over time' -X 'Months ago' -Y 'Tabs in main window'
 }
 
