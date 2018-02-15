@@ -17,28 +17,28 @@ AwkScript='{
   print max, tot
 }'
 
-Usage="Usage: \$ $(basename $0) [tabs_log.tsv [firefox/profile/dir]]
+Usage="Usage: \$ $(basename $0) [options] [tabs_log.tsv]
 Print records of how many tabs I've had open in recent sessions in Firefox.
 This will read the Session Manager backup files from the default Firefox profile, parse them with
 my Python script, find how many tabs were open in each, and print the numbers in the format I use
 in my tabs log (e.g. ~/aa/computer/logs/tabs.tsv).
-If you give a tabs log as the first argument, it will omit sessions already in the log."
+If you give a tabs log as the first argument, it will omit sessions already in the log.
+Options:
+-p: Your Firefox profile directory."
 
 function main {
 
   # Read arguments.
-  tabs_log=
-  if [[ $# -ge 1 ]]; then
-    if [[ $1 == '-h' ]]; then
-      fail "$Usage"
-    else
-      tabs_log="$1"
-    fi
-  fi
   session_dir=
-  if [[ $# -ge 2 ]]; then
-    session_dir="$2/sessionstore-backups"
-  fi
+  while getopts ":p:h" opt; do
+  case "$opt" in
+      p) session_dir="$OPTARG/sessionstore-backups";;
+      h) echo "$USAGE"
+         exit;;
+    esac
+  done
+  # Get positionals.
+  tabs_log="${@:$OPTIND:1}"
 
   # Check that required paths exist
   if [[ "$tabs_log" ]] && ! [[ -f "$tabs_log" ]]; then
