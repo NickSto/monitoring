@@ -5,8 +5,17 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-SessionScript=${SessionScript:-$HOME/code/python/single/session-manager.py}
+SessionScript=${SessionScript:-$HOME/code/python/single/firefox-sessions.py}
 FirefoxDir=${FirefoxDir:-$HOME/.mozilla/firefox}
+AwkScript='{
+  for (i = 1; i <= NF; i++) {
+    tot += $i
+    if ($i > max) {
+      max = $i
+    }
+  }
+  print max, tot
+}'
 
 Usage="Usage: \$ $(basename $0) [tabs_log.tsv [firefox/profile/dir]]
 Print records of how many tabs I've had open in recent sessions in Firefox.
@@ -28,7 +37,7 @@ function main {
   fi
   session_dir=
   if [[ $# -ge 2 ]]; then
-    session_dir="$2/sessions"
+    session_dir="$2/sessionstore-backups"
   fi
 
   # Check that required paths exist
@@ -38,58 +47,58 @@ function main {
   if ! [[ -x "$SessionScript" ]]; then
     fail "Error: script $SessionScript missing."
   fi
-  if ! [[ -d "$FirefoxDir" ]]; then
-    fail "Error: Firefox directory "$FirefoxDir" missing."
-  fi
 
   # Find the sessions directory for the default profile.
   if ! [[ "$session_dir" ]]; then
-    if [[ $(ls -d1 "$FirefoxDir/"*.default | wc -l) != 1 ]]; then
-      fail "Error: Need exactly one match for "$FirefoxDir"/*.default"
+    if ! [[ -f "$FirefoxDir/profiles.ini" ]]; then
+      fail "Error: Cannot find file \"$FirefoxDir/profiles.ini\"."
     fi
-    session_dir=$(ls -d "$FirefoxDir"/*.default/sessions)
-    if ! [[ -d $session_dir ]]; then
+    profile_dir=$(get_default_profile "$FirefoxDir/profiles.ini")
+    if ! [[ "$profile_dir" ]] || ! [[ -d "$FirefoxDir/$profile_dir" ]]; then
+      fail "Error: Could not find the default profile."
+    fi
+    session_dir=$(ls -d "$FirefoxDir/$profile_dir/sessionstore-backups")
+    if ! [[ -d "$session_dir" ]]; then
       fail "Error: Sessions directory $session_dir missing."
     fi
   fi
 
-  # Read existing entries from the tabs log.
-  declare -A entries
+  session_file="$session_dir/previous.jsonlz4"
+
+  if ! [[ -f "$session_file" ]]; then
+    fail "Error: Could not find session file $session_file"
+  fi
+  modified=$(stat -c "%Y" "$session_file")
+
+  # Check if this file is already in the tabs log.
   if [[ "$tabs_log" ]]; then
-    while read timestamp rest; do
-      entries[$timestamp]=1
-    done < "$tabs_log"
+    if [[ $(awk "\$1 == $modified" "$tabs_log") ]]; then
+      echo "Session already in log." >&2
+      return
+    fi
   fi
 
-  # Read the number of tabs in each session and print the ones not already in the tabs log.
-  for session in $session_dir/backup*.session; do
-    # Get the timestamp of the session file.
-    # Each file includes a line like "timestamp=1478232825328", so we can just eval that.
-    if time_line=$(grep -E '^timestamp=[0-9]+$' $session); then
-      eval "$time_line"
-      # It's in milliseconds, so divide by 1000.
-      unixtime=$((timestamp/1000))
-    else
-      echo "Warning: No timestamp found in session $session" >&2
-      continue
+  # Get the number of tabs in the main (biggest) window, and in all windows.
+  read main total <<< $("$SessionScript" -T "$session_file" | awk "$AwkScript")
+
+  humantime=$(date -d @$modified)
+  echo -e "$modified\t$main\t$total\t$humantime"
+}
+
+function get_default_profile {
+  profiles_ini="$1"
+  while read line; do
+    if [[ "${line:0:8}" == '[Profile' ]]; then
+      path=
     fi
-    humantime=$(date -d @$unixtime)
-    # If an entry already exists for this session (identified by its timestamp), don't add it again.
-    # Have to unset -u to avoid an unbound variable error when $unixtime isn't in $entries. 
-    set +u
-    if [[ -n ${entries[$unixtime]} ]]; then
-      continue
+    if [[ "${line:0:5}" == 'Path=' ]]; then
+      path="${line:5}"
     fi
-    set -u
-    # Get the number of tabs in the session: Total, and in the main (biggest) window.
-    # The Python script will print a tab-delimited list of the number of tabs in each window.
-    # Awk will find the biggest window and the total.
-    read main total <<< $("$SessionScript" -T $session \
-      | awk '{for (i=1; i<=NF; i++) {tot+=$i; if ($i > max) {max=$i}} print max, tot}')
-    if [[ $main ]] && [[ $total ]]; then
-      echo -e "$unixtime\t$main\t$total\t$humantime"
+    if [[ "${line:0:8}" == 'Default=' ]] && [[ "${line:8}" == 1 ]] && [[ "$path" ]]; then
+      echo "$path"
+      return
     fi
-  done | sort -g -k 1
+  done < "$profiles_ini"
 }
 
 function fail {
