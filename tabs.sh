@@ -5,14 +5,26 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
+AwkScript='{
+  for (i = 1; i <= NF; i++) {
+    tot += $i
+    if ($i > max) {
+      max = $i
+    }
+  }
+  print max, tot
+}'
+
 Now=$(date +%s)
 DefaultTabsLog=$HOME/aa/computer/logs/tabs.tsv
 DefaultStartTime=1490984789
-Usage="Usage: \$ $(basename $0) [-g] [-t tabs_log.tsv] [-s start_time]
+SessionScript=${SessionScript:-$HOME/code/python/single/firefox-sessions.py}
+Usage="Usage: \$ $(basename $0) [-g] [-c] [-t tabs_log.tsv] [-s start_time]
 -t: tabs log tsv
 -s: start timestamp
 -g: Use a zenity prompt to get the start time from the user.
--u: Update the tabs log from the latest session files."
+-u: Update the tabs log from the latest session files.
+-c: Also display the current tab count in a pop-up notification."
 
 function main {
 
@@ -20,15 +32,36 @@ function main {
   start_time="$DefaultStartTime"
   gui=
   update=
-  while getopts ":gus:t:h" opt; do
+  current=
+  while getopts ":gucs:t:h" opt; do
   case "$opt" in
       t) tabs_log="$OPTARG";;
       s) start_time=$OPTARG;;
       g) gui="true";;
       u) update="true";;
+      c) current="true";;
       h) fail "$Usage";;
     esac
   done
+
+  # Notify the current number of tabs, if requested.
+  if [[ "$current" ]]; then
+    if ! [[ -x "$SessionScript" ]]; then
+      fail "Error: script $SessionScript missing."
+    fi
+    # Get the number of tabs in the main (biggest) window, and in all windows.
+    read main total <<< $("$SessionScript" -T | awk "$AwkScript")
+    session_file=$("$SessionScript" --print-path)
+    modified=$(stat -c "%Y" "$session_file")
+    age_seconds=$((Now-modified))
+    age_human=$(human_time "$age_seconds")
+    if [[ "$main" == "$total" ]]; then
+      total_line=
+    else
+      total_line="$total total\n"
+    fi
+    notify-send "$main tabs" "$total_line$age_human ago"
+  fi
 
   if [[ $gui ]] && which zenity >/dev/null 2>/dev/null; then
     default_days_ago=$(((Now-DefaultStartTime)/(60*60*24)))
@@ -41,6 +74,8 @@ function main {
     set -e
     if [[ $result ]]; then
       start_time=$(get_start_time "$result")
+    else
+      fail "Error: Did not receive a start time."
     fi
   elif [[ $# -ge 2 ]]; then
     start_time=$2
@@ -106,6 +141,52 @@ function parse_time {
     return 1
   fi
   echo $((quantity*multiplier))
+}
+
+function human_time {
+  sec=$(printf "%0.0f" "$1")
+  if [[ "$sec" -lt 60 ]]; then
+    format_time "$sec" second
+  elif [[ "$sec" -lt $((60*60)) ]]; then
+    min=$(echo "scale=3; $sec/60" | bc)
+    format_time "$min" minute
+  elif [[ "$sec" -lt $((60*60*24)) ]]; then
+    hr=$(echo "scale=3; $sec/60/60" | bc)
+    format_time "$hr" hour
+  elif [[ "$sec" -lt $((60*60*24*10)) ]]; then
+    days=$(echo "scale=3; $sec/60/60/24" | bc)
+    format_time "$days" day
+  elif [[ "$sec" -lt $((60*60*24*40)) ]]; then
+    weeks=$(echo "scale=3; $sec/60/60/24/7" | bc)
+    format_time "$weeks" week
+  elif [[ "$sec" -lt $((60*60*24*365)) ]]; then
+    months=$(echo "scale=3; $sec/60/60/24/30" | bc)
+    format_time "$months" month
+  else
+    years=$(echo "scale=3; $sec/60/60/24/365" | bc)
+    format_time "$years" year
+  fi
+}
+
+function format_time {
+  quantity="$1"
+  unit="$2"
+  if [[ $(echo "$quantity < 10" | bc) == 1 ]]; then
+    rounded1decimal=$(printf "%0.1f" "$quantity")
+    rounded0decimal=$(printf "%0.0f" "$quantity")
+    if [[ $(echo "$rounded1decimal == $rounded0decimal" | bc) == 1 ]]; then
+      rounded=$rounded0decimal
+    else
+      rounded=$rounded1decimal
+    fi
+  else
+    rounded=$(printf "%0.0f" "$quantity")
+  fi
+  if [[ "$rounded" == 1 ]]; then
+    echo "$rounded $unit"
+  else
+    echo "$rounded ${unit}s"
+  fi
 }
 
 function fail {
