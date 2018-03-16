@@ -91,9 +91,8 @@ function main {
   fi
 
   # 1481753483 is the last entry with over a thousand tabs, before the big, automated cleanup.
-  awk -F '\t' '$1 >= '$start_time' && $5 != "now" {print ($1-'$(date +%s)')/60/60/24/30.5, $2}' \
-      "$tabs_log" \
-    | scatterplot.py -T 'Tabs over time' -X 'Months ago' -Y 'Tabs in main window'
+  awk -F '\t' '$1 >= '$start_time' && $5 != "now" {print $1, $2}' "$tabs_log" \
+    | scatterplot.py --unix-time X --date -T 'Tabs over time' -Y 'Tabs in main window'
 }
 
 function get_start_time {
