@@ -7,7 +7,7 @@ Fields="$Fields wifilogin"
 Fields="$Fields pings"
 Fields="$Fields lastping"
 Fields="$Fields temp"
-Fields="$Fields ssid"
+# Fields="$Fields ssid"
 # Fields="$Fields timestamp"
 
 Now=$(date +%s)
@@ -167,7 +167,7 @@ function get_wifilogin {
       }
     }
   }'
-  read log pid <<< $(ps aux | awk $awkscript)
+  read log pid <<< $(ps aux | awk "$awkscript")
   login_status=
   if [[ $pid ]]; then
     if [[ ${log:0:1} == "/" ]]; then
