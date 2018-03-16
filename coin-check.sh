@@ -86,7 +86,7 @@ function main {
     if [[ $price ]] && is_int $price; then
       if [[ $price -gt $upper ]]; then
         echo "Price above threshold: $price > $upper"
-        zenity --warning --title "Bitcoin at \$$price" --text "It's above $upper!    " 2>/dev/null
+        zenity --warning --title "Bitcoin at \$$price" --text "It's over $upper!    " 2>/dev/null
         changed=true
       elif [[ $price -lt $lower ]]; then
         echo "Price below threshold: $price < $lower"
