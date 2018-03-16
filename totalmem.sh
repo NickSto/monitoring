@@ -7,7 +7,8 @@ set -ue
 
 Usage="Usage: \$ $(basename "$0") cmd_prefix [name]
 -t: Output tab-delimited format with 2 columns: the % of total CPU usage
-    (all cores), and the RAM usage, in MB."
+    (all cores), and the RAM usage, in MB.
+-u: Include the unix timestamp as an additional 1st column in the tsv output."
 
 function main {
   if [[ "$#" -lt 1 ]] || [[ "$1" == '-h' ]] || [[ "$1" == '--help' ]]; then
@@ -15,9 +16,11 @@ function main {
   fi
 
   tsv=
-  while getopts ":th" opt; do
+  timestamp=
+  while getopts ":tuh" opt; do
   case "$opt" in
       t) tsv="true";;
+      u) timestamp="true";;
       h) fail "$USAGE";;
     esac
   done
@@ -43,6 +46,10 @@ function main {
   fi
 
   if [[ "$tsv" ]]; then
+    if [[ "$timestamp" ]]; then
+      now=$(date +%s)
+      echo -ne "$now\t"
+    fi
     ps aux | awk 'substr($11, 1, '"$prefix_len"') == "'"$prefix"'" {cpu+=$3; mem+=$4} \
       END {print cpu/'"$cores"' "\t" '"$mem"'*mem/100/1024/1024}'
   else
