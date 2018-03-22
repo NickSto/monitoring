@@ -56,7 +56,7 @@ function main {
       add=$(gunzip -c "$page_dir/$last_page" | diff - <(gunzip -c "$page_dir/$page") | grep -c '^>')
       del=$(gunzip -c "$page_dir/$last_page" | diff - <(gunzip -c "$page_dir/$page") | grep -c '^<')
       echo -e "$title changed!\n$add additions\n$del deletions"
-      notify-send -i important "$title changed!" "$add additions\n$del deletions"
+      notify zenity "$title changed!" "$add additions\n$del deletions"
     fi
   fi
 }
@@ -75,6 +75,26 @@ function get_page_dir {
   # Component 3: A checksum.
   checksum=$(crc32 <(echo "$url"))
   echo "$domain/$checksum$path_cleaned"
+}
+
+
+function notify {
+  method="$1"
+  title="$2"
+  body=
+  if [[ "$#" -ge 3 ]]; then
+    body="$3"
+  fi
+  if [[ "$method" == notify-send ]]; then
+    notify-send -i important "$title" "$body"
+  elif [[ "$method" == zenity ]]; then
+    # Set a width so the window title doesn't get cut off (zenity auto-sizes the window so the body
+    # text isn't cut off, but not the title text).
+    title_len=${#title}
+    width=$((title_len*10))
+    zenity --warning --width "$width" --title "$title" --text "$add additions\n$del deletions" \
+      2>/dev/null
+  fi
 }
 
 
