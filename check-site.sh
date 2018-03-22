@@ -8,6 +8,7 @@ set -ue
 DataDirRel='.local/share/nbsdata'
 DataDir="$HOME/$DataDirRel"
 SilenceFile="$DataDir/SILENCE"
+PidFile="$DataDir/check-site.pid"
 
 Usage="Usage: \$ $(basename $0) url [page_title]
 Check if a webpage has been updated.
@@ -23,6 +24,16 @@ function main {
   if [[ -e "$SilenceFile" ]]; then
     fail "Error: SILENCE file is present ($Silence). Cannot continue."
   fi
+
+  if [[ -f "$PidFile" ]]; then
+    last_pid=$(cat "$PidFile")
+    set +e
+    if ps -o comm="" -p "$last_pid" 2>/dev/null >/dev/null; then
+      fail "Error: An instance is already running at pid $last_pid"
+    fi
+    set -e
+  fi
+  echo "$$" > "$PidFile"
 
   url="$1"
   if [[ $# -ge 2 ]]; then
