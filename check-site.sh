@@ -5,13 +5,15 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-SilenceFile="$HOME/.local/share/nbsdata/SILENCE"
-EmptyHash=d41d8cd98f00b204e9800998ecf8427e
+DataDirRel='.local/share/nbsdata'
+DataDir="$HOME/$DataDirRel"
+SilenceFile="$DataDir/SILENCE"
 
-Usage="Usage: \$ $(basename $0) url [hash [page_title]]
-Check if a webpage has been updated based on its md5sum.
-The page_title will be used in output messages. The url will be used by default.
-Get the current hash with \$ $(basename $0) url (which just runs \"\$ curl -s url | md5sum\")"
+Usage="Usage: \$ $(basename $0) url [page_title]
+Check if a webpage has been updated.
+The page_title will be used in output messages. If not given, the url will be used by default.
+This stores versions of the page in ~/$DataDirRel/checksite,
+and checks against the previous version."
 
 function main {
   if [[ $# -lt 1 ]] || [[ $1 == '-h' ]]; then
@@ -23,30 +25,58 @@ function main {
   fi
 
   url="$1"
-  expected_hash=
   if [[ $# -ge 2 ]]; then
-    expected_hash="$2"
-  fi
-  if [[ $# -ge 3 ]]; then
-    title="$3"
+    title="$2"
   else
     title="$url"
   fi
 
-  observed_hash=$(curl -s "$url" | md5sum | awk '{print $1}')
+  page_dir="$DataDir/checksite/$(get_page_dir "$url")"
+  mkdir -p "$page_dir"
 
-  if ! [[ $expected_hash ]]; then
-    echo "$observed_hash"
-  elif [[ $observed_hash == $expected_hash ]]; then
-    printf "No change in $title\n" >&2
-  elif [[ $observed_hash == $EmptyHash ]]; then
-    printf "Error: Empty response from $url\n" >&2
-  else
-    printf "$title changed!\n"
-    notify-send -i important "$title changed!" 'Saw a different hash.'
+  last_page=$(ls -1t "$page_dir" | head -n 1)
+
+  page=$(date +'%F-%H%M%S.html.gz')
+  curl -s "$url" | gzip -c - > "$page_dir/$page"
+
+  bytes=$(wc -c "$page_dir/$page" | awk '{print $1}')
+  if [[ "$bytes" -le 21 ]]; then
+    rm "$page_dir/$page"
+    fail "Error: Empty response from $url"
   fi
 
+  if [[ "$last_page" ]]; then
+    set +e
+    if gunzip -c "$page_dir/$last_page" | diff -q - <(gunzip -c "$page_dir/$page") >/dev/null; then
+      set -e
+      echo "No change in $title" >&2
+      rm "$page_dir/$page"
+    else
+      set -e
+      add=$(gunzip -c "$page_dir/$last_page" | diff - <(gunzip -c "$page_dir/$page") | grep -c '^>')
+      del=$(gunzip -c "$page_dir/$last_page" | diff - <(gunzip -c "$page_dir/$page") | grep -c '^<')
+      echo -e "$title changed!\n$add additions\n$del deletions"
+      notify-send -i important "$title changed!" "$add additions\n$del deletions"
+    fi
+  fi
 }
+
+
+function get_page_dir {
+  url="$1"
+  # Component 1: The domain.
+  domain=$(echo "$url" | sed -E -e 's#^https?://##' -e 's#^([^/]+)/.*$#\1#')
+  # Component 2: The path.
+  path=$(echo "$url" | sed -E -e 's#^https?://##' -e 's#[^/]+(/.*)$#\1#')
+  # Only allow letters, numbers, dots, and dashes.
+  path_cleaned=$(echo "$path" | sed -E -e 's#/$##' -e 's#/#-#g' -e 's#[^a-zA-Z0-9.-]##g')
+  # Truncate to the first 100 characters.
+  path_cleaned=${path_cleaned:0:100}
+  # Component 3: A checksum.
+  checksum=$(crc32 <(echo "$url"))
+  echo "$domain/$checksum$path_cleaned"
+}
+
 
 function fail {
   echo "$@" >&2
