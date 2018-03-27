@@ -58,18 +58,31 @@ function main {
 
   if [[ "$last_page" ]]; then
     set +e
-    if gunzip -c "$page_dir/$last_page" | diff -q - <(gunzip -c "$page_dir/$page") >/dev/null; then
+    if gzip_diff "$page_dir/$last_page" "$page_dir/$page" -q >/dev/null; then
       set -e
       echo "No change in $title" >&2
       rm "$page_dir/$page"
     else
       set -e
-      add=$(gunzip -c "$page_dir/$last_page" | diff - <(gunzip -c "$page_dir/$page") | grep -c '^>')
-      del=$(gunzip -c "$page_dir/$last_page" | diff - <(gunzip -c "$page_dir/$page") | grep -c '^<')
+      add=$(gzip_diff "$page_dir/$last_page" "$page_dir/$page" | grep -c '^>')
+      del=$(gzip_diff "$page_dir/$last_page" "$page_dir/$page" | grep -c '^<')
       echo -e "$title changed!\n$add additions\n$del deletions"
-      notify zenity "$title changed!" "$add additions\n$del deletions"
+      if [[ $(notify zenity "$title changed!" "$add additions\n$del deletions") ]]; then
+        show_diff gui "$page_dir/$last_page" "$page_dir/$page"
+      fi
     fi
   fi
+}
+
+
+function gzip_diff {
+  file1="$1"
+  file2="$2"
+  opts=
+  if [[ "$#" -ge 3 ]]; then
+    opts="$3"
+  fi
+  gunzip -c "$file1" | diff $opts - <(gunzip -c "$file2")
 }
 
 
@@ -103,8 +116,31 @@ function notify {
     # text isn't cut off, but not the title text).
     title_len=${#title}
     width=$((title_len*10))
-    zenity --warning --width "$width" --title "$title" --text "$add additions\n$del deletions" \
-      2>/dev/null
+    set +e
+    if zenity --question --width "$width" --title "$title" \
+        --text "$add additions\n$del deletions\n\nView diff?" 2>/dev/null; then
+      echo "view diff"
+    fi
+    set -e
+  fi
+}
+
+
+function show_diff {
+  method="$1"
+  last_page="$2"
+  this_page="$3"
+  if [[ "$method" == terminal ]]; then
+    set +e
+    gzip_diff "$this_page" "$last_page"
+    set -e
+  elif [[ "$method" == gui ]]; then
+    diff_file=$(mktemp --tmpdir --suffix .txt check-site.diff.XXXXX)
+    set +e
+    gzip_diff "$this_page" "$last_page" > "$diff_file"
+    set -e
+    mousepad "$diff_file"
+    rm "$diff_file"
   fi
 }
 
