@@ -17,7 +17,7 @@ AwkScript='{
 
 Now=$(date +%s)
 DefaultTabsLog=$HOME/aa/computer/logs/tabs.tsv
-DefaultStartTime=1490984789
+DefaultStartTime=1518701800
 SessionScript=${SessionScript:-$HOME/code/python/single/firefox-sessions.py}
 Usage="Usage: \$ $(basename $0) [-g] [-c] [-t tabs_log.tsv] [-s start_time]
 -t: tabs log tsv
