@@ -10,15 +10,32 @@ DataDir="$HOME/$DataDirRel"
 SilenceFile="$DataDir/SILENCE"
 PidFile="$DataDir/check-site.pid"
 
-Usage="Usage: \$ $(basename $0) url [page_title]
+Usage="Usage: \$ $(basename $0) [options] url [page_title]
 Check if a webpage has been updated.
 The page_title will be used in output messages. If not given, the url will be used by default.
 This stores versions of the page in ~/$DataDirRel/checksite,
-and checks against the previous version."
+and checks against the previous version.
+Options:
+-a: The minimum number of additions to consider the page updated. The diff must show that at least
+    this many lines were added in order to display the alert. This is 0 by default.
+-d: The minimum number of deletions. 0 by default."
 
 function main {
-  if [[ $# -lt 1 ]] || [[ $1 == '-h' ]]; then
-    fail "$Usage"
+
+  # Read arguments.
+  min_add=0
+  min_del=0
+  while getopts ":a:d:l:h" opt; do
+    case "$opt" in
+      a) min_add="$OPTARG";;
+      d) min_del="$OPTARG";;
+      h) fail "$Usage";;
+    esac
+  done
+  url="${@:$OPTIND:1}"
+  title="${@:$OPTIND+1:1}"
+  if ! [[ "$title" ]]; then
+    title="$url"
   fi
 
   if [[ -e "$SilenceFile" ]]; then
@@ -34,13 +51,6 @@ function main {
     set -e
   fi
   echo "$$" > "$PidFile"
-
-  url="$1"
-  if [[ $# -ge 2 ]]; then
-    title="$2"
-  else
-    title="$url"
-  fi
 
   page_dir="$DataDir/checksite/$(get_page_dir "$url")"
   mkdir -p "$page_dir"
@@ -66,9 +76,11 @@ function main {
       set -e
       add=$(gzip_diff "$page_dir/$last_page" "$page_dir/$page" | grep -c '^>')
       del=$(gzip_diff "$page_dir/$last_page" "$page_dir/$page" | grep -c '^<')
-      echo -e "$title changed!\n$add additions\n$del deletions"
-      if [[ $(notify zenity "$title changed!" "$add additions\n$del deletions") ]]; then
-        show_diff gui "$page_dir/$last_page" "$page_dir/$page"
+      if [[ "$add" -ge "$min_add" ]] && [[ "$del" -ge "$min_del" ]]; then
+        echo -e "$title changed!\n$add additions\n$del deletions"
+        if [[ $(notify zenity "$title changed!" "$add additions\n$del deletions") ]]; then
+          show_diff gui "$page_dir/$last_page" "$page_dir/$page"
+        fi
       fi
     fi
   fi
