@@ -6,7 +6,7 @@ fi
 set -u
 
 PauseDefault=5
-Usage="Usage: \$ $(basename $0) [options] [goal] command [args]
+Usage="Usage: \$ $(basename $0) [options] goal command [args]
 Options:
 -p: minutes to wait between checks (${PauseDefault} min by default)
 -s: the starting number, if continuing from a previous run.
