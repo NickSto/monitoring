@@ -43,6 +43,7 @@ function main {
   # For $timeout, set up a function to execute the $exit_cmd when this script receives a SIGALRM
   # signal (which it will send itself the specified amount of time in the future).
   function exit_fxn {
+    echo "Running exit command \"$exit_cmd\".."
     eval "$exit_cmd"
     exit
   }
@@ -77,6 +78,7 @@ function main {
   # This will pause the script until the user hits [enter].
   read
   # Run the $exit_cmd.
+  echo "Running exit command \"$exit_cmd\".."
   eval "$exit_cmd"
 
 }
