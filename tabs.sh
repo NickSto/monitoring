@@ -20,8 +20,9 @@ DefaultTabsLog=$HOME/aa/computer/logs/tabs.tsv
 DefaultStartTime=1518701800
 SessionScript=${SessionScript:-$HOME/code/python/single/firefox-sessions.py}
 Usage="Usage: \$ $(basename $0) [-g] [-c] [-t tabs_log.tsv] [-s start_time]
--t: tabs log tsv
--s: start timestamp
+-t: The tabs log tsv file.
+-n: Show tab counts taken during browsing sessions, instead of at the end.
+-s: Starting timestamp.
 -g: Use a zenity prompt to get the start time from the user.
 -u: Update the tabs log from the latest session files.
 -c: Also display the current tab count in a pop-up notification."
@@ -31,12 +32,14 @@ function main {
   tabs_log="$DefaultTabsLog"
   start_time="$DefaultStartTime"
   gui=
+  now=
   update=
   current=
-  while getopts ":gucs:t:h" opt; do
+  while getopts ":guncs:t:h" opt; do
   case "$opt" in
       t) tabs_log="$OPTARG";;
       s) start_time=$OPTARG;;
+      n) now="true";;
       g) gui="true";;
       u) update="true";;
       c) current="true";;
@@ -90,9 +93,17 @@ function main {
     fi
   fi
 
+  if [[ "$now" ]]; then
+    now_cmp='=='
+    now_title='(constant monitoring)'
+  else
+    now_cmp='!='
+    now_title='(end of session)'
+  fi
+
   # 1481753483 is the last entry with over a thousand tabs, before the big, automated cleanup.
-  awk -F '\t' '$1 >= '$start_time' && $5 != "now" {print $1, $2}' "$tabs_log" \
-    | scatterplot.py --unix-time X --date -T 'Tabs over time' -Y 'Tabs in main window'
+  awk -F '\t' '$1 >= '"$start_time"' && $5 '"$now_cmp"' "now" {print $1, $2}' "$tabs_log" \
+    | scatterplot.py --unix-time X --date -T 'Tabs over time'$'\n'"$now_title" -Y 'Tabs in main window'
 }
 
 function get_start_time {
