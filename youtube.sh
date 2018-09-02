@@ -55,15 +55,14 @@ function main {
   fi
 
   site=
-  for candidate in youtube vimeo facebook instagram twitter; do
-    if echo "$url" | grep -qE '^(https?://)?(www\.)?'$candidate'\.com'; then
-      site=$candidate
+  for candidate in {youtube,vimeo,facebook,instagram,twitter}.com clips.twitch.tv; do
+    if echo "$url" | grep -qE '^(https?://)?(www\.)?'"$candidate"; then
+      site=$(echo "$candidate" | awk -F . '{print $(NF-1)}')
       break
     fi
   done
   if ! [[ $site ]]; then
-    fail "Error: Invalid url or domain is not youtube.com, vimeo.com, facebook.com, instagram.com, or
-twitter.com (in url \"$url\")."
+    fail "Error: Invalid url or domain is not youtube.com, vimeo.com, facebook.com, instagram.com, twitter.com, or twitch.tv (in url \"$url\")."
   fi
 
   quality_args=
@@ -112,6 +111,9 @@ twitter.com (in url \"$url\")."
     fi
   elif [[ $site == vimeo ]]; then
     format="$title [src vimeo.com%%2F%(uploader_id)s] [posted %(upload_date)s] [id %(id)s].%(ext)s"
+  elif [[ "$site" == twitch ]]; then
+    id=$(echo "$url" | sed -E 's#^https?://clips.twitch.tv/([^/?]+)((\?|/).*)?$#\1#')
+    format="$title [src twitch.tv%%2F%(creator)s] [posted %(upload_date)s] [id $id].%(ext)s"
   elif [[ $site == facebook ]]; then
     url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
     url_escaped=$(url_double_escape "$url_escaped")
