@@ -39,7 +39,7 @@ function main {
     last_uptime_human=$(human_time $last_uptime)
     startup_time_human=$(date -d @$((shutdown_time-last_uptime)))
     shutdown_time_human=$(date -d @$shutdown_time)
-    echo -e "$shutdown_time\t$last_uptime\t$last_uptime_human\t$startup_time_human\t$shutdown_time_human" >> "$log_file"
+    echo -e "$shutdown_time\t$last_uptime\t$last_uptime_human\t$startup_time_human\t$shutdown_time_human\t." >> "$log_file"
   fi
 
   while true; do
