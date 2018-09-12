@@ -2,10 +2,11 @@
 DataDir="$HOME/.local/share/nbsdata"
 
 # Comment out a line to exclude the field.
-Fields=disk
+Fields=
 Fields="$Fields wifilogin"
-Fields="$Fields pings"
 Fields="$Fields lastping"
+Fields="$Fields pings"
+Fields="$Fields disk"
 Fields="$Fields temp"
 # Fields="$Fields ssid"
 # Fields="$Fields timestamp"
@@ -81,9 +82,11 @@ function get_ssid {
 }
 
 # Free disk space
-# Shows free space for any mounted device under /dev that's not mounted under /boot.
+# Shows free space for any mounted device under /dev that's not mounted under /boot or /snap.
 function get_disk {
-  df -h | awk 'substr($1, 1, 5) == "/dev/" && substr($6, 1, 5) != "/boot" {printf("%s,", $4)}' | head -c -1
+  df -h \
+    | awk 'substr($1, 1, 5) == "/dev/" {prefix = substr($6, 1, 5); if (prefix != "/boot" && prefix != "/snap") {printf("%s,", $4)}}' \
+    | head -c -1
 }
 
 # CPU temperature
