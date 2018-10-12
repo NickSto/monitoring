@@ -79,7 +79,7 @@ function main {
     start_time=$(date +%s)
     if ! isint "$start"; then
       fail "Error: command '$command $args' failed or did not output an integer. Output:
-$start"
+${start:0:100}"
     fi
   fi
   if [[ "$start" -gt "$goal" ]]; then
@@ -173,7 +173,11 @@ function calc {
 }
 
 function isint {
-  echo "$1" | grep -q -E '^[0-9]+$'
+  if [[ $(echo "$1" | wc -l) == 1 ]]; then
+    echo "$1" | grep -q -E '^[0-9]+$'
+  else
+    return 1
+  fi
 }
 
 function fail {
