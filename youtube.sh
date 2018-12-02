@@ -13,6 +13,8 @@ Options:
 -n: Just print what the video filename would be, without downloading it.
 -c: Give a file extension to convert the video to this audio format. The file
     will be named \$title.\$ext. Options: $ValidConversions
+-p: Use this string as the 'posted' value, when not automatically obtained from the website
+    (true for at least Twitter and Instagram).
 -f: Quality of video to download. Here are the known resolutions and their aliases:
     640x360:  18
     640x480:  135
@@ -27,12 +29,14 @@ function main {
   get_filename=
   convert_to=
   quality=
-  while getopts ":Fnc:f:h" opt; do
+  posted=
+  while getopts ":Fnc:f:p:h" opt; do
     case "$opt" in
       F) get_formats=true;;
       n) get_filename=true;;
       c) convert_to=$OPTARG;;
       f) quality=$OPTARG;;
+      p) posted="$OPTARG";;
       h) fail "$Usage";;
     esac
   done
@@ -121,18 +125,18 @@ function main {
   elif [[ $site == instagram ]] || [[ $site == twitter ]]; then
     upload_date=$(youtube-dl --get-filename -o '%(upload_date)s' "$url")
     if [[ $upload_date == NA ]]; then
-      posted=
-      epilog="$epilog
+      if [[ "$posted" ]]; then
+        posted_str="[posted $posted] "
+      else
+        posted_str=
+        epilog="$epilog
 No upload date could be obtained! You might want to put it in yourself:
-    [posted YYYYMMDD]"
+        [posted YYYYMMDD]"
+      fi
     else
-      posted=" [posted %(upload_date)s]"
+      posted_str="[posted %(upload_date)s] "
     fi
-    if [[ $site == instagram ]]; then
-      format="$title [src instagram.com%%2F%(uploader_id)s]$posted [id %(id)s].%(ext)s"
-    elif [[ $site == twitter ]]; then
-      format="$title [src twitter.com%%2F%(uploader_id)s]$posted [id %(id)s].%(ext)s"
-    fi
+    format="$title $posted_str[src $site.com%%2F%(uploader_id)s] [id %(id)s].%(ext)s"
   fi
 
   # Get the the resulting filename, then exit, if requested.
