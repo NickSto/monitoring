@@ -6,6 +6,7 @@ Fields=
 Fields="$Fields wifilogin"
 Fields="$Fields lastping"
 Fields="$Fields pings"
+Fields="$Fields worktime"
 Fields="$Fields disk"
 Fields="$Fields temp"
 # Fields="$Fields ssid"
@@ -34,7 +35,13 @@ function main {
 
 function human_time {
   total_sec=$1
+  omit_sec="$2"
   sec=$((total_sec % 60))
+  if [[ "$omit_sec" ]] && [[ "$sec" -gt 30 ]]; then
+    # If we're not showing minutes, round to the closest minute instead of always rounding down.
+    total_sec=$((total_sec+30))
+    sec=$((total_sec % 60))
+  fi
   total_min=$((total_sec/60))
   min=$((total_min % 60))
   total_hr=$((total_min/60))
@@ -66,6 +73,14 @@ function human_time {
           sec_str='0s'
         fi
       fi
+    fi
+  fi
+  if [[ "$omit_sec" ]]; then
+    sec_str=
+    if [[ "$min" == 0 ]]; then
+      min_str=0
+    else
+      min_str=$(echo "$min_str" | sed -E 's/:$//')
     fi
   fi
   echo "$days_str$hr_str$min_str$sec_str"
@@ -191,6 +206,16 @@ function get_wifilogin {
       fi
     fi
   fi
+}
+
+function get_worktime {
+  read mode start <<< $(cat "$DataDir/workstatus.txt")
+  if ! [[ "$mode" ]] || ! [[ "$start" ]]; then
+    return 1
+  fi
+  elapsed=$((Now-start))
+  elapsed_human=$(human_time "$elapsed" omit_sec)
+  echo "[ $mode $elapsed_human ]"
 }
 
 main "$@"
