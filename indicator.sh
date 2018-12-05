@@ -78,7 +78,11 @@ function human_time {
   if [[ "$omit_sec" ]]; then
     sec_str=
     if [[ "$min" == 0 ]]; then
-      min_str=0
+      if [[ "$total_sec" -lt 600 ]]; then
+        min_str=0
+      else
+        min_str=00
+      fi
     else
       min_str=$(echo "$min_str" | sed -E 's/:$//')
     fi
@@ -215,7 +219,19 @@ function get_worktime {
   fi
   elapsed=$((Now-start))
   elapsed_human=$(human_time "$elapsed" omit_sec)
-  echo "[ $mode $elapsed_human ]"
+  output="$mode $elapsed_human"
+  if [[ -f "$DataDir/worksummary.json" ]] && which jq >/dev/null 2>/dev/null; then
+    ratio=$(jq '.ratios[] | select( .timespan == 43200 ) | .value' "$DataDir/worksummary.json")
+    if [[ "$ratio" ]]; then
+      if echo "$ratio" | grep -q 'e+'; then
+        ratio_str='∞'
+      else
+        ratio_str=$(printf '%0.2f' "$ratio")
+      fi
+      output="$output · $ratio_str"
+    fi
+  fi
+  echo "$output"
 }
 
 main "$@"
