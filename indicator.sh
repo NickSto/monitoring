@@ -225,7 +225,11 @@ function get_worktime {
   fi
   elapsed=$((Now-start))
   elapsed_human=$(human_time "$elapsed" omit_sec)
-  output="$mode $elapsed_human"
+  if [[ "$mode" != s ]]; then
+    output="$mode $elapsed_human"
+  else
+    output=
+  fi
   if [[ -f "$DataDir/worksummary.json" ]] && which jq >/dev/null 2>/dev/null; then
     ratio=$(jq '.ratios[] | select( .timespan == 43200 ) | .value' "$DataDir/worksummary.json")
     if [[ "$ratio" ]]; then
@@ -234,7 +238,11 @@ function get_worktime {
       else
         ratio_str=$(printf '%0.2f' "$ratio")
       fi
-      output="$output · $ratio_str"
+      if [[ "$output" ]]; then
+        output="$output · $ratio_str"
+      else
+        output="$ratio_str"
+      fi
     fi
   fi
   echo "$output"
