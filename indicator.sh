@@ -97,7 +97,13 @@ function get_timestamp {
 
 # Wifi SSID
 function get_ssid {
-  iwconfig 2> /dev/null | sed -nE 's/^.*SSID:"(.*)"\s*$/\1/pig' | head -n 1
+  MaxLength=11
+  ssid=$(iwconfig 2> /dev/null | sed -nE 's/^.*SSID:"(.*)"\s*$/\1/pig' | head -n 1)
+  if [[ "${#ssid}" -le "$((MaxLength+1))" ]]; then
+    echo "$ssid"
+  else
+    echo "${ssid:0:$MaxLength}…"
+  fi
 }
 
 # Free disk space
