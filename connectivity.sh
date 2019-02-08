@@ -8,18 +8,24 @@ set -ue
 LogFile=$HOME/aa/computer/logs/upmonitor.tsv
 PlotScript=$HOME/code/python/single/scatterplot.py
 HoursDefault=24
-Usage="Usage: \$ $(basename $0) [hours ago]
-Default hours ago: $HoursDefault"
+Usage="Usage: \$ $(basename $0) [-i] [hours ago]
+Default hours ago: $HoursDefault
+-i: Invert the Y axis, showing 100/latency instead of Log10(latency)."
 
 function main {
 
-  hours=$HoursDefault
-  if [[ $# -ge 1 ]]; then
-    if [[ $1 == '-h' ]] || [[ $1 == '--help' ]]; then
-      fail "$Usage"
-    else
-      hours=$1
-    fi
+  # Get arguments.
+  inverse=
+  while getopts "ih" opt; do
+    case "$opt" in
+      i) inverse="true";;
+      [h?]) fail "$Usage";;
+    esac
+  done
+  hours="${@:$OPTIND:1}"
+
+  if ! [[ "$hours" ]]; then
+    hours="$HoursDefault"
   fi
 
   plot_script=$(which scatterplot.py)
@@ -42,15 +48,22 @@ function main {
     sampling=1
   fi
 
-  awk -F '\t' -v OFS='\t' \
-    'NR % '$sampling' == 0 && $2 > '$now'-('$hours'*60*60) {
-      printf("%f\t", ($2-'$now')/60/60)
-      if ($1 == 0) {
-        print 0
-      } else {
-        print 100/$1
-      }
-    }' $LogFile | $plot_script -X 'Hours ago' -Y 'Connectivity (100/latency)'
+  if [[ "$inverse" ]]; then
+    awk -F '\t' -v OFS='\t' \
+      'NR % '$sampling' == 0 && $2 > '$now'-('$hours'*60*60) {
+        printf("%f\t", ($2-'$now')/60/60)
+        if ($1 == 0) {
+          print 0
+        } else {
+          print 100/$1
+        }
+      }' $LogFile | $plot_script -T 'Connectivity' -X 'Hours ago' -Y 'Connectivity (100/latency)'
+  else
+    awk -F '\t' -v OFS='\t' \
+      'NR % '$sampling' == 0 && $2 > '$now'-('$hours'*60*60) && $1 != 0 {
+        print ($2-'$now')/60/60, log($1)/log(10)
+      }' $LogFile | $plot_script -T 'Latency' -X 'Hours ago' -Y 'Log10(Latency)'
+  fi
 }
 
 function fail {
