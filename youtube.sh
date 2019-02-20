@@ -80,8 +80,18 @@ function main {
         1280) quality_args='-f 22';;
         *) quality_args="-f $quality";;
       esac
+    elif [[ "$site" == facebook ]]; then
+      case "$quality" in
+        360) quality_args='-f dash_sd_src';;
+        640) quality_args='-f dash_sd_src';;
+        18)  quality_args='-f dash_sd_src';;
+        720) quality_args='-f dash_hd_src';;
+        1280) quality_args='-f dash_hd_src';;
+        22)  quality_args='-f dash_hd_src';;
+        *) fail "Invalid quality '$quality' for Facebook.";;
+      esac
     else
-      echo "Warning: Quality only selectable for Youtube." >&2
+      echo "Warning: Quality only selectable for Youtube and Facebook." >&2
     fi
   fi
 
@@ -119,9 +129,20 @@ function main {
     id=$(echo "$url" | sed -E 's#^https?://clips.twitch.tv/([^/?]+)((\?|/).*)?$#\1#')
     format="$title [src twitch.tv%%2F%(creator)s] [posted %(upload_date)s] [id $id].%(ext)s"
   elif [[ "$site" == facebook ]]; then
-    url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
-    url_escaped=$(url_double_escape "$url_escaped")
-    format="$title [src $url_escaped] [posted %(upload_date)s].%(ext)s"
+    facebook_regex='facebook\.com/[^/?]+/videos/[0-9]+'
+    if ! echo "$url" | grep -qE "$facebook_regex"; then
+      new_url=$(curl -s --write-out '%{redirect_url}' "$url")
+      if echo "$new_url" | grep -qE "$facebook_regex"; then
+        url="$new_url"
+      fi
+    fi
+    if echo "$url" | grep -qE "$facebook_regex"; then
+      url_escaped=$(echo "$url" | sed -E -e 's#^((https?://)?www\.)?##' -e 's#^(facebook\.com/[^?]+).*$#\1#' -e 's#/$##')
+      url_escaped=$(url_double_escape "$url_escaped")
+      format="$title [posted %(upload_date)s] [src $url_escaped].%(ext)s"
+    else
+      format="$title [posted %(upload_date)s] [src %(uploader)s, facebook.com%%2Fwatch%%2F%%3Fv%%3D275807353109597].%(ext)s"
+    fi
   elif [[ "$site" == instagram ]] || [[ "$site" == twitter ]]; then
     upload_date=$(youtube-dl --get-filename -o '%(upload_date)s' "$url")
     if [[ "$upload_date" == NA ]]; then
