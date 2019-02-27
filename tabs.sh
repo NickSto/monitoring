@@ -16,9 +16,9 @@ AwkScript='{
 }'
 
 Now=$(date +%s)
-DefaultTabsLog=$HOME/aa/computer/logs/tabs.tsv
+DefaultTabsLog="$HOME/aa/computer/logs/tabs.tsv"
 DefaultStartTime=1518701800
-SessionScript=${SessionScript:-$HOME/code/python/single/firefox-sessions.py}
+SessionScript=${SessionScript:-"$HOME/code/python/single/firefox-sessions.py"}
 Usage="Usage: \$ $(basename $0) [-g] [-c] [-t tabs_log.tsv] [-s start_time]
 -t: The tabs log tsv file.
 -n: Show tab counts taken during browsing sessions, instead of at the end.
@@ -66,7 +66,7 @@ function main {
     notify-send "$main tabs" "$total_line$age_human ago"
   fi
 
-  if [[ $gui ]] && which zenity >/dev/null 2>/dev/null; then
+  if [[ "$gui" ]] && which zenity >/dev/null 2>/dev/null; then
     default_days_ago=$(((Now-DefaultStartTime)/(60*60*24)))
     set +e
     result=$(zenity --entry \
@@ -75,7 +75,7 @@ function main {
       --entry-text "$default_days_ago days" \
       2>/dev/null)
     set -e
-    if [[ $result ]]; then
+    if [[ "$result" ]]; then
       start_time=$(get_start_time "$result")
     else
       fail "Error: Did not receive a start time."
@@ -85,8 +85,8 @@ function main {
     fail "Error: Invalid start time \"$start_time\""
   fi
 
-  if [[ $update ]]; then
-    script_dir=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+  if [[ "$update" ]]; then
+    script_dir=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
     if [[ -s "$script_dir/tab-log.sh" ]]; then
       bash "$script_dir/tab-log.sh" "$tabs_log" >> "$tabs_log"
     else
@@ -110,7 +110,7 @@ function main {
 function get_start_time {
   time_str="$1"
   if echo "$time_str" | grep -qE '^[0-9]+$'; then
-    start_time=$time_str
+    start_time="$time_str"
   else
     sec_ago=$(parse_time "$time_str")
     start_time=$((Now-sec_ago))
@@ -131,21 +131,21 @@ function parse_time {
   fi
   quantity=$(echo "$time_str" | sed -E 's/^([0-9]+).*$/\1/')
   unit=$(echo "$time_str" | sed -E 's/^[0-9]+ *([a-z]+)/\1/')
-  if [[ ${unit:0:1} == s ]]; then
+  if [[ "${unit:0:1}" == s ]]; then
     multiplier=1
-  elif [[ ${unit:0:1} == mi ]]; then
+  elif [[ "${unit:0:1}" == mi ]]; then
     multiplier=60
-  elif [[ ${unit:0:1} == h ]]; then
+  elif [[ "${unit:0:1}" == h ]]; then
     multiplier=$((60*60))
-  elif [[ ${unit:0:1} == d ]]; then
+  elif [[ "${unit:0:1}" == d ]]; then
     multiplier=$((60*60*24))
-  elif [[ ${unit:0:1} == w ]]; then
+  elif [[ "${unit:0:1}" == w ]]; then
     multiplier=$((60*60*24*7))
-  elif [[ ${unit:0:2} == mo ]]; then
+  elif [[ "${unit:0:2}" == mo ]]; then
     multiplier=2635200 # == 60*60*24*30.5
-  elif [[ ${unit:0:1} == y ]]; then
+  elif [[ "${unit:0:1}" == y ]]; then
     multiplier=$((60*60*24*365))
-  elif [[ ${unit:0:1} == m ]]; then
+  elif [[ "${unit:0:1}" == m ]]; then
     # If only "m" is given, default to minutes
     multiplier=60
   else
@@ -182,13 +182,13 @@ function human_time {
 function format_time {
   quantity="$1"
   unit="$2"
-  if [[ $(echo "$quantity < 10" | bc) == 1 ]]; then
+  if [[ "$(echo "$quantity < 10" | bc)" == 1 ]]; then
     rounded1decimal=$(printf "%0.1f" "$quantity")
     rounded0decimal=$(printf "%0.0f" "$quantity")
-    if [[ $(echo "$rounded1decimal == $rounded0decimal" | bc) == 1 ]]; then
-      rounded=$rounded0decimal
+    if [[ "$(echo "$rounded1decimal == $rounded0decimal" | bc)" == 1 ]]; then
+      rounded="$rounded0decimal"
     else
-      rounded=$rounded1decimal
+      rounded="$rounded1decimal"
     fi
   else
     rounded=$(printf "%0.0f" "$quantity")
@@ -201,7 +201,7 @@ function format_time {
 }
 
 function isint {
-  if [[ $(echo "$1" | wc -l) == 1 ]]; then
+  if [[ "$(echo "$1" | wc -l)" == 1 ]]; then
     echo "$1" | grep -q -E '^[0-9]+$'
   else
     return 1
