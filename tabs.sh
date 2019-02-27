@@ -80,8 +80,9 @@ function main {
     else
       fail "Error: Did not receive a start time."
     fi
-  elif [[ $# -ge 2 ]]; then
-    start_time=$2
+  fi
+  if ! isint "$start_time"; then
+    fail "Error: Invalid start time \"$start_time\""
   fi
 
   if [[ $update ]]; then
@@ -196,6 +197,14 @@ function format_time {
     echo "$rounded $unit"
   else
     echo "$rounded ${unit}s"
+  fi
+}
+
+function isint {
+  if [[ $(echo "$1" | wc -l) == 1 ]]; then
+    echo "$1" | grep -q -E '^[0-9]+$'
+  else
+    return 1
   fi
 }
 
