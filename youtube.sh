@@ -98,7 +98,7 @@ function main {
   conversion_args=
   if [[ "$convert_to" ]]; then
     valid=
-    for conversion in "$ValidConversions"; do
+    for conversion in $ValidConversions; do
       if [[ "$convert_to" == "$conversion" ]]; then
         valid=true
         break
