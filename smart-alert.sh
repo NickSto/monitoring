@@ -6,6 +6,7 @@ fi
 set -ue
 
 DataDir="$HOME/.local/share/nbsdata"
+PidFile="$DataDir/$(basename "$0" .sh).pid"
 CriticalStats='5,187,188,197,198'
 AwkScript='
 BEGIN {
@@ -53,6 +54,16 @@ function main {
   if ! [[ "$log" ]]; then
     fail "$Usage"
   fi
+
+  if [[ -f "$PidFile" ]]; then
+    last_pid=$(cat "$PidFile")
+    set +e
+    if ps -o comm="" -p "$last_pid" 2>/dev/null >/dev/null; then
+      fail "Error: An instance is already running at pid $last_pid"
+    fi
+    set -e
+  fi
+  echo "$$" > "$PidFile"
 
   last_time=$(cut -f 1 "$log" | uniq | tail -n 1)
 
