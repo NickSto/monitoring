@@ -14,10 +14,11 @@ BEGIN {
     ids[ids_arr[i]] = 1
   }
 }
-$1 == LastTime && $4 > 0 {
-  if ($2 in ids) {
+$2 in ids {
+  if ($1 == LastTime && $4 > 0 && (! OnlyDiff || $4 != last_values[$2])) {
     print $2, $3, $4
   }
+  last_values[$2] = $4
 }'
 Usage="Usage: \$ $(basename "$0") [-g] [-s id1,id2,etc] smart-log.tsv
 Raise alert if critical SMART stat values appear.
@@ -27,6 +28,7 @@ Give the path to a log of smart values as output by smart-format.py -t.
 Options:
 -s: The ids of the stats to check (comma-separated list). If any of these
     are > 0, the alert will be raised. Default: $CriticalStats
+-d: Only alert for stats which have changed since the previous measurement.
 -g: Also show GUI alert window.
 List of critical SMART stats taken from:
 https://www.computerworld.com/article/2846009/the-5-smart-stats-that-actually-predict-hard-drive-failure.html"
@@ -36,10 +38,12 @@ function main {
 
   # Get arguments.
   gui=
+  only_diff=
   stats="$CriticalStats"
-  while getopts "gs:h" opt; do
+  while getopts "gds:h" opt; do
     case "$opt" in
       g) gui="true";;
+      d) only_diff="true";;
       s) stats="$OPTARG";;
       [h?]) fail "$Usage";;
     esac
@@ -52,7 +56,8 @@ function main {
 
   last_time=$(cut -f 1 "$log" | uniq | tail -n 1)
 
-  results=$(awk -F '\t' -v OFS='\t' -v LastTime="$last_time" -v IdsStr="$stats" "$AwkScript" "$log")
+  results=$(awk -F '\t' -v OFS='\t' -v LastTime="$last_time" -v IdsStr="$stats" \
+            -v OnlyDiff="$only_diff" "$AwkScript" "$log")
 
   if [[ "$results" ]]; then
     echo "$results"
