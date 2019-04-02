@@ -104,7 +104,8 @@ function main {
 
   # 1481753483 is the last entry with over a thousand tabs, before the big, automated cleanup.
   awk -F '\t' '$1 >= '"$start_time"' && $5 '"$now_cmp"' "now" {print $1, $2}' "$tabs_log" \
-    | scatterplot.py --unix-time X --date -T 'Tabs over time'$'\n'"$now_title" -Y 'Tabs in main window'
+    | scatterplot.py --unix-time X --date -S 6 \
+      -T 'Tabs over time'$'\n'"$now_title" -Y 'Tabs in main window'
 }
 
 function get_start_time {
