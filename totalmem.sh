@@ -55,17 +55,22 @@ function main {
   mem=0
   for command in "${@:$OPTIND}"; do
     if [[ "$exact" ]]; then
-      read cpu mem <<< $(ps aux | awk -v cpu="$cpu" -v mem="$mem" \
-        '$11 == "'"$command"'" {cpu+=$3; mem+=$4} END {print cpu, mem}')
+      read cpu mem seen <<< $(ps aux | awk -v cpu="$cpu" -v mem="$mem" \
+        '$11 == "'"$command"'" {seen=1; cpu+=$3; mem+=$4} END {print cpu, mem, seen}')
     elif [[ "$basename" ]]; then
-      read cpu mem <<< $(ps aux | awk -v cpu="$cpu" -v mem="$mem" \
-        '{len = split($11, fields, "/"); if (fields[len] == "'"$command"'") {cpu+=$3; mem+=$4}} \
-         END {print cpu, mem}')
+      read cpu mem seen <<< $(ps aux | awk -v cpu="$cpu" -v mem="$mem" \
+        '{len = split($11, fields, "/"); if (fields[len] == "'"$command"'") {seen=1; cpu+=$3; mem+=$4}}
+         END {print cpu, mem, seen}')
     else
-      read cpu mem <<< $(ps aux | awk -v cpu="$cpu" -v mem="$mem" \
-        'substr($11, 1, '${#command}') == "'"$command"'" {cpu+=$3; mem+=$4} END {print cpu, mem}')
+      read cpu mem seen <<< $(ps aux | awk -v cpu="$cpu" -v mem="$mem" \
+        'substr($11, 1, '${#command}') == "'"$command"'" {seen=1; cpu+=$3; mem+=$4}
+        END {print cpu, mem, seen}')
     fi
   done
+
+  if ! [[ "$seen" ]]; then
+    fail "Did not find any processes matching the given command(s)."
+  fi
 
   if [[ "$tsv" ]]; then
     if [[ "$timestamp" ]]; then
