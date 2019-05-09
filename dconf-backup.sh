@@ -14,34 +14,34 @@ By default it will preserve the previous version of the file as a .bak.
 Give -d to delete the .bak instead."
 
 function main {
-  if [[ $# -lt 1 ]] || [[ $1 == '-h' ]]; then
+  if [[ "$#" -lt 1 ]] || [[ "$1" == '-h' ]]; then
     fail "$Usage"
   fi
 
   dir="$1"
   keep_bak=true
-  if [[ $# -ge 2 ]]; then
-    if [[ $2 == '-d' ]]; then
+  if [[ "$#" -ge 2 ]]; then
+    if [[ "$2" == '-d' ]]; then
       keep_bak=
     else
       fail "Error: Invalid 2nd argument \"$2\". Must be \"-d\", if given."
     fi
   fi
 
-  for file in $(ls $dir); do
-    path=/$(basename $file .txt | tr . /)/
-    if [[ $file =~ \.bak$ ]]; then
+  for file in $(ls "$dir"); do
+    path=/$(basename "$file" .txt | tr . /)/
+    if [[ "$file" =~ \.bak$ ]]; then
       continue
     fi
-    if ! [[ $(dconf list $path) ]]; then
+    if ! [[ $(dconf list "$path") ]]; then
       echo "Warning: path \"$path\" empty. \"$file\" not a valid backup?" >&2
       continue
     fi
-    echo $path
-    if [[ $keep_bak ]]; then
-      mv $dir/$file $dir/$file.bak
+    echo "$path"
+    if [[ "$keep_bak" ]]; then
+      mv "$dir/$file" "$dir/$file.bak"
     fi
-    dconf dump $path > $dir/$file
+    dconf dump "$path" > "$dir/$file"
   done
 }
 
