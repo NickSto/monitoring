@@ -131,7 +131,7 @@ function main {
   elif [[ "$site" == facebook ]]; then
     facebook_regex='facebook\.com/[^/?]+/videos/[0-9]+'
     if ! echo "$url" | grep -qE "$facebook_regex"; then
-      new_url=$(curl -s --write-out '%{redirect_url}' "$url")
+      new_url=$(curl -s --write-out '%{redirect_url}' -o /dev/null "$url")
       if echo "$new_url" | grep -qE "$facebook_regex"; then
         url="$new_url"
       fi
