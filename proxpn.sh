@@ -25,9 +25,6 @@ function main {
   if ! [[ -f $config_file ]]; then
     fail "Error: $config_file missing!"
   fi
-  if [[ -e $Silence ]]; then
-    fail "Error: SILENCE file \"$Silence\" exists. Exiting.."
-  fi
   if [[ $EUID != 0 ]]; then
     fail "Error: Must be run as root."
   fi
@@ -43,8 +40,15 @@ function main {
   fi
   echo "Determined \$USER to be \"$user\"."
 
-  # Silence network traffic that could be identifying.
-  touch $Silence
+  # Check the SILENCE file and confirm.
+  echo
+  if [[ -e "$Silence" ]]; then
+    echo "System is silenced. You want to make a VPN connection?"
+  else
+    echo "System is NOT silenced! Are you sure you want to continue?"
+  fi
+  read -p "Hit ENTER to continue or Ctrl+C to abort.
+"
 
   # OpenVPN config file contains relative paths, so we need to be in its directory.
   config_dir=$(dirname "$config_file")
