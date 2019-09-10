@@ -52,6 +52,7 @@ function main {
 
   # OpenVPN config file contains relative paths, so we need to be in its directory.
   config_dir=$(dirname "$config_file")
+  echo "Changing directory to $config_dir"
   cd $config_dir
   if [[ $? != 0 ]]; then
     fail "Error cd-ing into $config_dir"
@@ -64,6 +65,7 @@ function main {
   fi
   
   # Avoid IPv6 leaks
+  echo "Turning off IPv6.."
   if ! sysctl -w net.ipv6.conf.$interface.disable_ipv6=1; then
     echo "Error turning off ipv6. Is this the correct interface name? \"$interface\"" >&2
     return 1
@@ -74,10 +76,15 @@ function main {
   openvpn --user $user --config $config_filename
   
   # Restore IPv6 functionality.
+  echo "Restoring IPv6.."
   sysctl -w net.ipv6.conf.$interface.disable_ipv6=0
-  
-  # Unsilence network traffic.
-  rm $Silence
+
+  echo "VPN exited."
+  if [[ -f "$Silence" ]]; then
+    echo "System is still silenced."
+  else
+    echo "System is not silenced."
+  fi
 }
 
 function fail {
