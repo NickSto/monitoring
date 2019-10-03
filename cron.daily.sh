@@ -18,8 +18,13 @@ SESSION=ubuntu
 # Record a log of how many tabs I have open.
 #bash $HOME/code/bash/single/tab-log.sh -l $HOME/aa/computer/logs/tabs.tsv >> $HOME/aa/computer/logs/tabs.tsv
 # Back up custom dconf settings.
-dconf dump / > $HOME/aa/misc/backups/dconf.txt
+dconf dump / > "$HOME/aa/misc/backups/dconf.txt"
 
 # Save a survey of my files.
-$HOME/bin/archive-file.py --min-size 500000 $HOME/aa/misc/backups/0historical-record/dir-snapshots/live/snapshot-selected.tsv.gz -e .tsv.gz
-$HOME/code/python/files/file-metadata.py -p low -r -a crc32 $HOME/aa $HOME/annex $HOME/aux $HOME/bin $HOME/code $HOME/Desktop $HOME/Dropbox $HOME/src $HOME/Templates $HOME/vbox $HOME/Videos $HOME/.config $HOME/.local $HOME/.mozilla $HOME/.ssh | gzip -c - > $HOME/aa/misc/backups/0historical-record/dir-snapshots/live/snapshot-selected.tsv.gz
+snap_dir="$HOME/aa/misc/backups/0historical-record/dir-snapshots/live"
+"$HOME/code/python/files/file-metadata.py" -p low -r -a crc32 "$HOME/"{aa,annex,aux,bin,code,Desktop,Dropbox,src,Templates,vbox,Videos,.config,.local,.mozilla,.ssh} \
+  | gzip -c - > "$snap_dir/snapshot-selected.tmp.tsv.gz"
+if [[ "$?" == 0 ]]; then
+  "$HOME/bin/archive-file.py" --min-size 500000 "$snap_dir/snapshot-selected.tsv.gz" -e .tsv.gz
+  mv "$snap_dir/snapshot-selected.tmp.tsv.gz" "$snap_dir/snapshot-selected.tsv.gz"
+fi
