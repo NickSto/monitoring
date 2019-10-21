@@ -24,7 +24,7 @@ dconf dump / > "$HOME/aa/misc/backups/dconf.txt"
 snap_dir="$HOME/aa/misc/backups/0historical-record/dir-snapshots/live"
 "$HOME/code/python/files/file-metadata.py" -p low -r -a crc32 "$HOME/"{aa,annex,aux,bin,code,Desktop,Dropbox,src,Templates,vbox,Videos,.config,.local,.mozilla,.ssh} \
   | gzip -c - > "$snap_dir/snapshot-selected.tmp.tsv.gz"
-if [[ "$?" == 0 ]]; then
+if [[ "${PIPESTATUS[0]}" == 0 ]]; then
   "$HOME/bin/archive-file.py" --min-size 500000 "$snap_dir/snapshot-selected.tsv.gz" -e .tsv.gz
   mv "$snap_dir/snapshot-selected.tmp.tsv.gz" "$snap_dir/snapshot-selected.tsv.gz"
 fi
