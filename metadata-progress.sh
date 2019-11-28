@@ -33,18 +33,36 @@ function main {
     new_log=$(ls -1t "$snap_dir"/log.snapshot-20*.tsv | head -n 1)
   fi
 
+  old_name=$(get_name "$old_log" Old)
+  new_name=$(get_name "$new_log" New)
+  if [[ "$new_name" == $(date +'%Y-%m-%d') ]]; then
+    new_name="Today"
+  fi
+
   read old_start old_end <<< $(get_ends "$old_log")
   read new_start new_end <<< $(get_ends "$new_log")
 
   border=$(((old_end+new_start)/2))
 
-  awk -F '\t' -v OFS='\t' -v old_start="$old_start" -v new_start="$new_start" -v border="$border" '{
+  awk -F '\t' -v OFS='\t' -v old_start="$old_start" -v new_start="$new_start" -v border="$border" \
+    -v old_name="$old_name" -v new_name="$new_name" '{
     if ($1 < border) {
-      print "Old", ($1-old_start)/60, $2/1024/1024/1024, $3
+      print old_name, ($1-old_start)/60, $2/1024/1024/1024, $3
     } else {
-      print "Now", ($1-new_start)/60, $2/1024/1024/1024, $3
+      print new_name, ($1-new_start)/60, $2/1024/1024/1024, $3
     }
   }' "$old_log" "$new_log" | scatterplot.py -g 1 -x 2 -y 3 -X Minutes -Y GB
+}
+
+function get_name {
+  path="$1"
+  fallback="$2"
+  date=$(echo "$path" | grep -Eo '20[12][0-9]-[012][0-9]-[0-3][0-9]' | head -n 1)
+  if [[ "$date" ]]; then
+    echo "$date"
+  else
+    echo "$fallback"
+  fi
 }
 
 function get_ends {
