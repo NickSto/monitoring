@@ -7,10 +7,11 @@ set -ue
 
 Now=$(date +%s)
 LogFile="$HOME/aa/misc/backups/0historical-record/mv.tsv"
-Usage="Usage: \$ $(basename $0) src dst"
+Usage="Usage: \$ $(basename $0) src dst
+Records move in $LogFile"
 
 function main {
-  if [[ $# != 2 ]] || [[ $1 == '-h' ]] || [[ $1 == '--help' ]]; then
+  if [[ "$#" != 2 ]] || [[ "$1" == '-h' ]] || [[ "$1" == '--help' ]]; then
     fail "$Usage"
   fi
 
