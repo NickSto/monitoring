@@ -35,7 +35,7 @@ function watch_snapshot {
 snap_dir="$HOME/aa/misc/backups/0historical-record/dir-snapshots/live"
 watch_snapshot "$snap_dir" &
 "$HOME/code/python/files/file-metadata.py" -p low -r -a crc32 \
-  "$HOME/"{aa,annex,aux,bin,code,Desktop,Dropbox,src,Templates,vbox,Music,Pictures,Videos,.config,.local,.mozilla,.ssh} \
+  "$HOME/"{aa,annex,bin,code,Desktop,Dropbox,src,Templates,vbox,Music,Pictures,Videos,.config,.local,.mozilla,.ssh} \
   "$HOME/backuphide"/{gog,isos,tweets} --flat-dir "$HOME/backuphide" \
   | gzip -c - > "$snap_dir/snapshot-selected.tmp.tsv.gz"
 if [[ "${PIPESTATUS[0]}" == 0 ]]; then
