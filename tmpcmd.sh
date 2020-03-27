@@ -14,7 +14,7 @@ You can always skip the second command by exiting with Ctrl+C."
 function main {
 
   # Read arguments.
-  if [[ $# -lt 1 ]]; then
+  if [[ "$#" -lt 1 ]]; then
     fail "$Usage"
   fi
 
@@ -33,15 +33,16 @@ function main {
     exit_cmd="$entry_cmd"
   fi
 
-  if [[ $timeout ]]; then
-    if ! echo $timeout | grep -qE '^[0-9]+[smhd]?$'; then
-      fail "Error: -t timeout must be an integer, plus a unit \"sleep\" understands, like \"s\", \
-\"m\", \"h\", or \"d\"."
+  if [[ "$timeout" ]]; then
+    if ! echo "$timeout" | grep -qE '^[0-9]+[smhd]?$'; then
+      fail 'Error: -t timeout must be an integer, plus a unit "sleep" understands, like "s", "m", "h", or "d".'
     fi
   fi
 
   # For $timeout, set up a function to execute the $exit_cmd when this script receives a SIGALRM
   # signal (which it will send itself the specified amount of time in the future).
+  #TODO: Can just use -t option on the read command.
+  #      But it exits with code 128 on timeout, so make sure to set +e temporarily.
   function exit_fxn {
     echo "Running exit command \"$exit_cmd\".."
     eval "$exit_cmd"
@@ -54,7 +55,7 @@ function main {
   eval "$entry_cmd"
   echo
   # Pause, and print info on the user's options.
-  if [[ $timeout ]]; then
+  if [[ "$timeout" ]]; then
     echo "Pausing for $timeout.."
   else
     echo "Pausing."
@@ -63,15 +64,15 @@ function main {
   echo "Or hit [Ctrl+C] to exit without running the exit command (\"$exit_cmd\")"
   echo
   # If $timeout, set up a timer which will make the script wake up and execute the $exit_cmd.
-  if [[ $timeout ]]; then
+  if [[ "$timeout" ]]; then
     # The following is executed in a subshell (child process).
     (
       # Sleep for the specified amount of time.
-      sleep $timeout;
+      sleep "$timeout";
       # Check that this script is still running.
-      if [[ $(ps -o comm= -p $$) == bash ]]; then
+      if [[ $(ps -o comm= -p "$$") == bash ]]; then
       # Send the SIGALRM signal.
-        kill -s SIGALRM $$
+        kill -s SIGALRM "$$"
       fi
     ) &
   fi
