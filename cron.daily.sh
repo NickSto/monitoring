@@ -17,15 +17,35 @@ SESSION=ubuntu
 
 echo 'cron.daily.sh running' >> "$HOME/.local/share/nbsdata/cron-stdout.log"
 
-# Record a log of how many tabs I have open.
-#bash $HOME/code/bash/single/tab-log.sh -l $HOME/aa/computer/logs/tabs.tsv >> $HOME/aa/computer/logs/tabs.tsv
-# Back up custom dconf settings.
-dconf dump / > "$HOME/aa/misc/backups/dconf.txt"
+function main {
 
-# Allow delaying the survey manually.
-while [[ -f "$HOME/.local/share/nbsdata/PAUSE" ]]; do
-  sleep 15
-done
+  # Record a log of how many tabs I have open.
+  #bash $HOME/code/bash/single/tab-log.sh -l $HOME/aa/computer/logs/tabs.tsv >> $HOME/aa/computer/logs/tabs.tsv
+  # Back up custom dconf settings.
+  dconf dump / > "$HOME/aa/misc/backups/dconf.txt"
+
+  take_snapshot
+
+}
+
+function take_snapshot {
+  # Allow delaying the survey manually.
+  while [[ -f "$HOME/.local/share/nbsdata/PAUSE" ]]; do
+    sleep 15
+  done
+
+  # Save a survey of my files.
+  snap_dir="$HOME/aa/misc/backups/0historical-record/dir-snapshots/live"
+  watch_snapshot "$snap_dir" &
+  "$HOME/code/python/files/file-metadata.py" -p low -r -a crc32 \
+    "$HOME/"{aa,annex,bin,code,Desktop,Dropbox,src,Templates,vbox,Music,Pictures,Videos,.config,.local,.mozilla,.ssh} \
+    "$HOME/backuphide/"{gog,isos,tweets} --flat-dir "$HOME/backuphide" \
+    | gzip -c - > "$snap_dir/snapshot-selected.tmp.tsv.gz"
+  if [[ "${PIPESTATUS[0]}" == 0 ]]; then
+    "$HOME/bin/archive-file.py" --min-size 500000 "$snap_dir/snapshot-selected.tsv.gz" -e .tsv.gz
+    mv "$snap_dir/snapshot-selected.tmp.tsv.gz" "$snap_dir/snapshot-selected.tsv.gz"
+  fi
+}
 
 function watch_snapshot {
   local snap_dir="$1"
@@ -38,14 +58,4 @@ function watch_snapshot {
   done > "$snap_dir/log.snapshot-$today.tsv"
 }
 
-# Save a survey of my files.
-snap_dir="$HOME/aa/misc/backups/0historical-record/dir-snapshots/live"
-watch_snapshot "$snap_dir" &
-"$HOME/code/python/files/file-metadata.py" -p low -r -a crc32 \
-  "$HOME/"{aa,annex,bin,code,Desktop,Dropbox,src,Templates,vbox,Music,Pictures,Videos,.config,.local,.mozilla,.ssh} \
-  "$HOME/backuphide/"{gog,isos,tweets} --flat-dir "$HOME/backuphide" \
-  | gzip -c - > "$snap_dir/snapshot-selected.tmp.tsv.gz"
-if [[ "${PIPESTATUS[0]}" == 0 ]]; then
-  "$HOME/bin/archive-file.py" --min-size 500000 "$snap_dir/snapshot-selected.tsv.gz" -e .tsv.gz
-  mv "$snap_dir/snapshot-selected.tmp.tsv.gz" "$snap_dir/snapshot-selected.tsv.gz"
-fi
+main "$@"
