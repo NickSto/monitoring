@@ -24,7 +24,7 @@ function main {
   # Back up custom dconf settings.
   dconf dump / > "$HOME/aa/misc/backups/dconf.txt"
 
-  take_snapshot
+  take_snapshot &
 
 }
 
