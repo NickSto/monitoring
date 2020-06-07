@@ -57,12 +57,16 @@ function main {
         } else {
           print 100/$1
         }
-      }' $LogFile | $plot_script -T 'Connectivity' -X 'Hours ago' -Y 'Connectivity (100/latency)'
+      }' "$LogFile" \
+      | "$plot_script" --title 'Connectivity' --x-label 'Hours ago' --point-size 10 \
+        --y-label 'Connectivity (100/latency)'
   else
     awk -F '\t' -v OFS='\t' \
       'NR % '$sampling' == 0 && $2 > '$now'-('$hours'*60*60) && $1 != 0 {
         print ($2-'$now')/60/60, log($1)/log(10)
-      }' $LogFile | $plot_script -T 'Latency' -X 'Hours ago' -Y 'Log10(Latency)'
+      }' "$LogFile" \
+      | "$plot_script" --title 'Latency' --x-label 'Hours ago' --point-size 10 \
+        --y-label 'Log10(Latency)'
   fi
 }
 
