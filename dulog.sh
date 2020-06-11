@@ -43,12 +43,12 @@ function main {
     size="$bytes"
   else
     divisor=$(get_divisor "$unit")
-    size=$(calc "$bytes/$divisor")
+    size=$(calc "round($bytes/$divisor, 1)")
   fi
   if [[ "$nopath" ]]; then
-    printf '%d\t%0.0f\n' "$now" "$size"
+    printf '%d\t%s\n' "$now" "$size"
   else
-    printf '%d\t%0.0f\t%s\n' "$now" "$size" "$abspath"
+    printf '%d\t%s\t%s\n' "$now" "$size" "$abspath"
   fi
 }
 
