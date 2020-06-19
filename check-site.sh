@@ -8,7 +8,7 @@ set -ue
 DataDirRel='.local/share/nbsdata'
 DataDir="$HOME/$DataDirRel"
 SilenceFile="$DataDir/SILENCE"
-PidFile="$DataDir/check-site.pid"
+PidFile="$DataDir/$(basename "$0" .sh).pid"
 
 Usage="Usage: \$ $(basename $0) [options] url [page_title]
 Check if a webpage has been updated.
@@ -16,17 +16,22 @@ The page_title will be used in output messages. If not given, the url will be us
 This stores versions of the page in ~/$DataDirRel/checksite,
 and checks against the previous version.
 Options:
--a: The minimum number of additions to consider the page updated. The diff must show that at least
-    this many lines were added in order to display the alert. This is 0 by default.
--d: The minimum number of deletions. 0 by default."
+-c: The minimum number of changes to consider the page updated. This will count the number of lines
+    added and the number deleted. The sum must be at least this number to display the alert.
+    Default: 0
+-a: The minimum number of additions. Default: 0
+-d: The minimum number of deletions. Default: 0
+If you specify multiple thresholds, the diff must pass all of them."
 
 function main {
 
   # Read arguments.
+  min_changes=0
   min_add=0
   min_del=0
-  while getopts ":a:d:l:h" opt; do
+  while getopts ":c:a:d:l:h" opt; do
     case "$opt" in
+      c) min_changes="$OPTARG";;
       a) min_add="$OPTARG";;
       d) min_del="$OPTARG";;
       h) fail "$Usage";;
@@ -76,7 +81,9 @@ function main {
       set -e
       add=$(gzip_diff "$page_dir/$last_page" "$page_dir/$page" | grep -c '^>')
       del=$(gzip_diff "$page_dir/$last_page" "$page_dir/$page" | grep -c '^<')
-      if [[ "$add" -ge "$min_add" ]] && [[ "$del" -ge "$min_del" ]]; then
+      changes=$((add+del))
+      if [[ "$add" -ge "$min_add" ]] && [[ "$del" -ge "$min_del" ]] && \
+         [[ "$changes" -ge "$min_changes" ]]; then
         echo -e "$title changed!\n$add additions\n$del deletions"
         if [[ $(notify zenity "$title changed!" "$add additions\n$del deletions") ]]; then
           show_diff gui "$page_dir/$last_page" "$page_dir/$page"
@@ -144,12 +151,12 @@ function show_diff {
   this_page="$3"
   if [[ "$method" == terminal ]]; then
     set +e
-    gzip_diff "$this_page" "$last_page"
+    gzip_diff "$last_page" "$this_page"
     set -e
   elif [[ "$method" == gui ]]; then
     diff_file=$(mktemp --tmpdir --suffix .txt check-site.diff.XXXXX)
     set +e
-    gzip_diff "$this_page" "$last_page" > "$diff_file"
+    gzip_diff "$last_page" "$this_page" > "$diff_file"
     set -e
     mousepad "$diff_file"
     rm "$diff_file"
