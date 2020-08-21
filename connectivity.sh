@@ -43,7 +43,7 @@ function main {
 
   now=$(date +%s)
 
-  sampling=$(python3 -c "print(round($hours/2.5))")
+  sampling=$(python3 -c "print(round($hours/10))")
   if [[ "$sampling" -le 0 ]]; then
     sampling=1
   fi
@@ -58,7 +58,7 @@ function main {
           print 100/$1
         }
       }' "$LogFile" \
-      | "$plot_script" --grid --title 'Connectivity' --x-label 'Hours ago' --point-size 10 \
+      | "$plot_script" --grid --title 'Connectivity' --x-label 'Hours ago' --point-size 5 \
         --y-label 'Connectivity (100/latency)'
   else
     awk -F '\t' -v OFS='\t' \
@@ -71,7 +71,7 @@ function main {
         }
       }' "$LogFile" \
       | "$plot_script" --grid --tag-field 1 --x-field 2 --y-field 3 --title Latency \
-        --x-label 'Hours ago' --point-size 10 --y-label 'Log10(Latency)'
+        --x-label 'Hours ago' --point-size 5 --y-label 'Log10(Latency)'
   fi
 }
 
