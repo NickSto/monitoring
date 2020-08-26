@@ -8,17 +8,20 @@ set -ue
 LogFile="$HOME/aa/computer/logs/upmonitor.tsv"
 PlotScript="$HOME/code/python/single/scatterplot.py"
 HoursDefault=24
-Usage="Usage: \$ $(basename "$0") [-i] [hours ago]
-Default hours ago: $HoursDefault
+Usage="Usage: \$ $(basename "$0") [-i] [hours]
+Default number of hours to show: $HoursDefault
+-s: Start this many hours ago (default: same as the number of hours to show).
 -i: Invert the Y axis, showing 100/latency instead of Log10(latency)."
 
 function main {
 
   # Get arguments.
   inverse=
-  while getopts "ih" opt; do
+  start=
+  while getopts "is:h" opt; do
     case "$opt" in
       i) inverse="true";;
+      s) start="$OPTARG";;
       [h?]) fail "$Usage";;
     esac
   done
@@ -26,6 +29,10 @@ function main {
 
   if ! [[ "$hours" ]]; then
     hours="$HoursDefault"
+  fi
+
+  if ! [[ "$start" ]]; then
+    start="$hours"
   fi
 
   plot_script=$(which scatterplot.py)
@@ -43,14 +50,17 @@ function main {
 
   now=$(date +%s)
 
-  sampling=$(python3 -c "print(round($hours/10))")
+  sampling=$(calc "round($hours/10)")
   if [[ "$sampling" -le 0 ]]; then
     sampling=1
   fi
+  end=$(calc "$start-$hours")
+  start_sec=$(calc "$now - $start*60*60")
+  end_sec=$(calc "$now - $end*60*60")
 
   if [[ "$inverse" ]]; then
     awk -F '\t' -v OFS='\t' \
-      'NR % '"$sampling"' == 0 && $2 > '"$now"'-('"$hours"'*60*60) {
+      'NR % '"$sampling"' == 0 && $2 > '"$start_sec"' && $2 < '"$end_sec"' {
         printf("%f\t", ($2-'"$now"')/60/60)
         if ($1 == 0) {
           print 0
@@ -59,10 +69,10 @@ function main {
         }
       }' "$LogFile" \
       | "$plot_script" --grid --title 'Connectivity' --x-label 'Hours ago' --point-size 5 \
-        --y-label 'Connectivity (100/latency)'
+        --x-range "-$start" "-$end" --y-label 'Connectivity (100/latency)'
   else
     awk -F '\t' -v OFS='\t' \
-      'NR % '"$sampling"' == 0 && $2 > '"$now"'-('"$hours"'*60*60) {
+      'NR % '"$sampling"' == 0 && $2 > '"$start_sec"' && $2 < '"$end_sec"' {
         hrs_ago = ($2-'"$now"')/60/60
         if ($7 == "up" && $1 != 0) {
           print $7, hrs_ago, log($1)/log(10)
@@ -71,8 +81,12 @@ function main {
         }
       }' "$LogFile" \
       | "$plot_script" --grid --tag-field 1 --x-field 2 --y-field 3 --title Latency \
-        --x-label 'Hours ago' --point-size 5 --y-label 'Log10(Latency)'
+        --x-range "-$start" "-$end" --x-label 'Hours ago' --point-size 5 --y-label 'Log10(Latency)'
   fi
+}
+
+function calc {
+  python3 -c "print($1)"
 }
 
 function fail {
