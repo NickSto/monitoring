@@ -7,7 +7,7 @@ set -ue
 unset CDPATH
 
 MuteContinue="$HOME/.local/share/nbsdata/MUTE-CONTINUE"
-Usage="Usage: \$ $(basename "$0") [pos2]"
+Usage="Usage: \$ $(basename "$0") [delay]"
 
 function main {
 
@@ -27,9 +27,19 @@ function main {
 
   sleep "$delay"
 
+  # Check if the user said to abort the mute. If not, continue with the muting.
   if [[ -f "$MuteContinue" ]]; then
     notify-send 'Muting..'
     amixer --quiet -D pulse set Master mute
+  fi
+
+  # Wait until the user has given a response.
+  wait
+
+  # If they have clicked "yes", then unmute.
+  if ! [[ -f "$MuteContinue" ]]; then
+    notify-send "Unmuting.."
+    amixer --quiet -D pulse set Master unmute
   fi
 }
 
