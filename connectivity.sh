@@ -54,6 +54,11 @@ function main {
   if [[ "$sampling" -le 0 ]]; then
     sampling=1
   fi
+  if [[ "$sampling" == 1 ]]; then
+    subtitle="every ping"
+  else
+    subtitle="every $(ordinal "$sampling") ping"
+  fi
   end=$(calc "$start-$hours")
   start_sec=$(calc "$now - $start*60*60")
   end_sec=$(calc "$now - $end*60*60")
@@ -80,9 +85,21 @@ function main {
           print $7, hrs_ago, 0
         }
       }' "$LogFile" \
-      | "$plot_script" --grid --tag-field 1 --x-field 2 --y-field 3 --title Latency \
+      | "$plot_script" --grid --tag-field 1 --x-field 2 --y-field 3 --title Latency$'\n'"($subtitle)" \
         --x-range "-$start" "-$end" --x-label 'Hours ago' --point-size 5 --y-label 'Log10(Latency)'
   fi
+}
+
+function ordinal {
+  number="$1"
+  case "$number" in
+    1[0-9]) ending=th;;
+    *1) ending=st;;
+    *2) ending=nd;;
+    *3) ending=rd;;
+    *) ending=th;;
+  esac
+  echo "${number}${ending}"
 }
 
 function calc {
