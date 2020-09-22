@@ -5,8 +5,8 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-DataDir=$HOME/.local/share/nbsdata
-UptimeFile=$DataDir/uptime-current.txt
+DataDir="$HOME/.local/share/nbsdata"
+UptimeFile="$DataDir/uptime-current.txt"
 SleepTime=1m
 
 Usage="Usage: \$ $(basename $0) log-file.tsv
@@ -23,7 +23,7 @@ The log file is tab-delimited, with 5 columns:
 
 function main {
 
-  if [[ $# -lt 1 ]] || [[ $1 == '-h' ]]; then
+  if [[ "$#" -lt 1 ]] || [[ "$1" == '-h' ]] || [[ "$1" == '--help' ]]; then
     fail "$Usage"
   else
     log_file="$1"
@@ -33,27 +33,28 @@ function main {
     fail "Error: /proc/uptime missing."
   fi
 
-  if [[ -s $UptimeFile ]]; then
-    shutdown_time=$(stat -c %Y $UptimeFile)
-    last_uptime=$(cat $UptimeFile)
-    last_uptime_human=$(human_time $last_uptime)
+  if [[ -s "$UptimeFile" ]]; then
+    shutdown_time=$(stat -c %Y "$UptimeFile")
+    last_uptime=$(cat "$UptimeFile")
+    last_uptime_human=$(human_time "$last_uptime")
     startup_time_human=$(date -d @$((shutdown_time-last_uptime)))
-    shutdown_time_human=$(date -d @$shutdown_time)
-    echo -e "$shutdown_time\t$last_uptime\t$last_uptime_human\t$startup_time_human\t$shutdown_time_human\t." >> "$log_file"
+    shutdown_time_human=$(date -d "@$shutdown_time")
+    echo -e "$shutdown_time\t$last_uptime\t$last_uptime_human\t$startup_time_human\t$shutdown_time_human\t." \
+      >> "$log_file"
   fi
 
   while true; do
     # Get the uptime in seconds from /proc/uptime.
     # The sed command gets the first number, without the decimal point.
-    sed -E 's/^([0-9]+)\..*$/\1/' /proc/uptime > $UptimeFile
-    sleep $SleepTime
+    sed -E 's/^([0-9]+)\..*$/\1/' /proc/uptime > "$UptimeFile"
+    sleep "$SleepTime"
   done
 }
 
 
 # Convert a number of seconds into a human-readable time string.
 function human_time {
-  local sec_total=$1
+  local sec_total="$1"
   local sec=$((sec_total % 60))
   local min_total=$((sec_total/60))
   local min=$((min_total % 60))
@@ -62,34 +63,34 @@ function human_time {
   local days_total=$((hr_total/24))
   local days=$((days_total % 365))
   local years_total=$((days_total/365))
-  if [[ $days == 1 ]]; then
+  if [[ "$days" == 1 ]]; then
     local days_str='1 day '
   else
     local days_str="$days days "
   fi
-  if [[ $years_total == 1 ]]; then
+  if [[ "$years_total" == 1 ]]; then
     local years_str='1 year '
   else
     local years_str="$years_total years "
   fi
   local hr_str="$hr:"
   local min_str="$min:"
-  local sec_str=$sec
-  if [[ $min -lt 10 ]] && [[ $min_total -ge 60 ]]; then
+  local sec_str="$sec"
+  if [[ "$min" -lt 10 ]] && [[ "$min_total" -ge 60 ]]; then
     min_str="0$min:"
   fi
-  if [[ $sec -lt 10 ]] && [[ $sec_total -ge 60 ]]; then
+  if [[ "$sec" -lt 10 ]] && [[ "$sec_total" -ge 60 ]]; then
     sec_str="0$sec"
   fi
-  if [[ $years_total == 0 ]]; then
+  if [[ "$years_total" == 0 ]]; then
     years_str=''
-    if [[ $days == 0 ]]; then
+    if [[ "$days" == 0 ]]; then
       days_str=''
-      if [[ $hr == 0 ]]; then
+      if [[ "$hr" == 0 ]]; then
         hr_str=''
-        if [[ $min == 0 ]]; then
+        if [[ "$min" == 0 ]]; then
           min_str=''
-          if [[ $sec == 0 ]]; then
+          if [[ "$sec" == 0 ]]; then
             sec_str='0'
           fi
         fi
