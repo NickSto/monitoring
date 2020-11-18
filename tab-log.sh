@@ -39,8 +39,7 @@ function main {
       n) stage="now";;
       l) stage="last";;
       p) session_dir="$OPTARG/sessionstore-backups";;
-      h) echo "$USAGE" >&2
-         exit;;
+      h) fail "$Usage";;
     esac
   done
   # Get positionals.
@@ -97,18 +96,11 @@ function main {
 
 function get_default_profile {
   profiles_ini="$1"
-  while read line; do
-    if [[ "${line:0:8}" == '[Profile' ]]; then
-      path=
-    fi
-    if [[ "${line:0:5}" == 'Path=' ]]; then
-      path="${line:5}"
-    fi
-    if [[ "${line:0:8}" == 'Default=' ]] && [[ "${line:8}" == 1 ]] && [[ "$path" ]]; then
-      echo "$path"
-      return
-    fi
-  done < "$profiles_ini"
+  section=$(sed -En 's/^\[(Install.*)\]$/\1/p' "$profiles_ini")
+  if [[ $(printf '%s\n' "$section" | wc -l) != 1 ]]; then
+    fail "Error finding install section in $profiles_ini. Saw: $section"
+  fi
+  config.py "$profiles_ini" "$section" Default
 }
 
 function fail {
