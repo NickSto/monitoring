@@ -45,6 +45,8 @@ function main {
   # Get positionals.
   tabs_log="${@:$OPTIND:1}"
 
+  add_bashrc_scripts
+
   # Check that required paths exist
   if [[ "$tabs_log" ]] && ! [[ -f "$tabs_log" ]]; then
     fail "Error: tabs log $tabs_log missing."
@@ -101,6 +103,49 @@ function get_default_profile {
     fail "Error finding install section in $profiles_ini. Saw: $section"
   fi
   config.py "$profiles_ini" "$section" Default
+}
+
+function add_bashrc_scripts {
+  bashrc_dir=$(find_bashrc_dir)
+  if [[ "$?" != 0 ]]; then
+    return 1
+  fi
+  scripts_dir="$bashrc_dir/scripts"
+  if [[ -d "$scripts_dir" ]]; then
+    pathadd "$scripts_dir"
+  else
+    return 2
+  fi
+}
+
+function find_bashrc_dir {
+  bashrc_dir_rel=$(dirname $(readlink "$HOME/.bashrc"))
+  if [[ "$?" != 0 ]]; then
+    return 1
+  fi
+  bashrc_dir="$HOME/$bashrc_dir_rel"
+  if [[ -d "$bashrc_dir" ]]; then
+    printf '%s' "$bashrc_dir"
+  else
+    return 2
+  fi
+}
+
+function pathadd {
+  local dir="$1"
+  if ! [[ -d "$dir" ]]; then
+    return
+  fi
+  # Handle empty PATH.
+  if ! [[ "$PATH" ]]; then
+    export PATH="$dir"
+    return
+  fi
+  # Check if it's already present.
+  if echo "$PATH" | tr : '\n' | grep -qE "^$dir\$"; then
+    return
+  fi
+  PATH="$PATH:$dir"
 }
 
 function fail {
