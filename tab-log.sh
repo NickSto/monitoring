@@ -5,7 +5,15 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-SessionScript=${SessionScript:-$HOME/code/python/single/firefox-sessions.py}
+SessionScript=${SessionScript:-firefox-sessions.py}
+SessionScriptDir=${SessionScriptDir:-"$HOME/code/python/single"}
+if which "$SessionScript" >/dev/null 2>/dev/null; then
+  SessionCmd="$SessionScript"
+elif [[ -x "$SessionScriptDir/$SessionScript" ]]; then
+  SessionCmd="$SessionScriptDir/$SessionScript"
+else
+  fail "Error: script $SessionScript missing."
+fi
 FirefoxDir=${FirefoxDir:-$HOME/.mozilla/firefox}
 AwkScript='{
   for (i = 1; i <= NF; i++) {
@@ -45,26 +53,18 @@ function main {
   # Get positionals.
   tabs_log="${@:$OPTIND:1}"
 
-  add_bashrc_scripts
-
   # Check that required paths exist
   if [[ "$tabs_log" ]] && ! [[ -f "$tabs_log" ]]; then
     fail "Error: tabs log $tabs_log missing."
   fi
-  if ! [[ -x "$SessionScript" ]]; then
-    fail "Error: script $SessionScript missing."
-  fi
 
   # Find the sessions directory for the default profile.
   if ! [[ "$session_dir" ]]; then
-    if ! [[ -f "$FirefoxDir/profiles.ini" ]]; then
-      fail "Error: Cannot find file \"$FirefoxDir/profiles.ini\"."
-    fi
-    profile_dir=$(get_default_profile "$FirefoxDir/profiles.ini")
-    if ! [[ "$profile_dir" ]] || ! [[ -d "$FirefoxDir/$profile_dir" ]]; then
+    profile_dir=$("$SessionCmd" --print-profile)
+    if ! [[ "$profile_dir" ]] || ! [[ -d "$profile_dir" ]]; then
       fail "Error: Could not find the default profile."
     fi
-    session_dir=$(ls -d "$FirefoxDir/$profile_dir/sessionstore-backups")
+    session_dir=$(ls -d "$profile_dir/sessionstore-backups")
     if ! [[ -d "$session_dir" ]]; then
       fail "Error: Sessions directory $session_dir missing."
     fi
@@ -90,62 +90,13 @@ function main {
   fi
 
   # Get the number of tabs in the main (biggest) window, and in all windows.
-  read main total <<< $("$SessionScript" -T "$session_file" | awk "$AwkScript")
+  read main total <<< $("$SessionCmd" -T "$session_file" | awk "$AwkScript")
+  if ! [[ "$main" ]] || ! [[ "$total" ]]; then
+    fail "Error: Failed to determine number of tabs: |$main| |$total|"
+  fi
 
   humantime=$(date -d @$modified)
   echo -e "$modified\t$main\t$total\t$humantime\t$stage"
-}
-
-function get_default_profile {
-  profiles_ini="$1"
-  section=$(sed -En 's/^\[(Install.*)\]$/\1/p' "$profiles_ini")
-  if [[ $(printf '%s\n' "$section" | wc -l) != 1 ]]; then
-    fail "Error finding install section in $profiles_ini. Saw: $section"
-  fi
-  config.py "$profiles_ini" "$section" Default
-}
-
-function add_bashrc_scripts {
-  bashrc_dir=$(find_bashrc_dir)
-  if [[ "$?" != 0 ]]; then
-    return 1
-  fi
-  scripts_dir="$bashrc_dir/scripts"
-  if [[ -d "$scripts_dir" ]]; then
-    pathadd "$scripts_dir"
-  else
-    return 2
-  fi
-}
-
-function find_bashrc_dir {
-  bashrc_dir_rel=$(dirname $(readlink "$HOME/.bashrc"))
-  if [[ "$?" != 0 ]]; then
-    return 1
-  fi
-  bashrc_dir="$HOME/$bashrc_dir_rel"
-  if [[ -d "$bashrc_dir" ]]; then
-    printf '%s' "$bashrc_dir"
-  else
-    return 2
-  fi
-}
-
-function pathadd {
-  local dir="$1"
-  if ! [[ -d "$dir" ]]; then
-    return
-  fi
-  # Handle empty PATH.
-  if ! [[ "$PATH" ]]; then
-    export PATH="$dir"
-    return
-  fi
-  # Check if it's already present.
-  if echo "$PATH" | tr : '\n' | grep -qE "^$dir\$"; then
-    return
-  fi
-  PATH="$PATH:$dir"
 }
 
 function fail {
