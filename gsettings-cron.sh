@@ -6,6 +6,9 @@ fi
 set -ue
 unset CDPATH
 
+ScriptDir=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+source "$ScriptDir/dbuslib.sh"
+
 # From https://askubuntu.com/questions/742870/background-not-changing-using-gsettings-from-cron/743024#743024
 Usage="Usage: \$ $(basename "$0") [gsettings args]
 This is intended to be a drop-in replacement for the 'gsettings' command that works in cron and
@@ -22,20 +25,6 @@ function main {
   fi
 
   gsettings "$@"
-}
-
-function get_dbus_address {
-  get_dbus_var | sed -E -e 's/\x0//g' -e 's/^[^=]+=//'
-}
-
-function get_dbus_var {
-  pgrep gnome-session | while read pid; do
-    set +e
-    grep -z '^DBUS_SESSION_BUS_ADDRESS=' "/proc/$pid/environ"
-    if [[ "$?" == 0 ]]; then
-      return
-    fi
-  done
 }
 
 function fail {
