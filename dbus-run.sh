@@ -9,10 +9,11 @@ unset CDPATH
 ScriptDir=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
 source "$ScriptDir/dbuslib.sh"
 
-# From https://askubuntu.com/questions/742870/background-not-changing-using-gsettings-from-cron/743024#743024
-Usage="Usage: \$ $(basename "$0") [gsettings args]
-This is intended to be a drop-in replacement for the 'gsettings' command that works in cron and
-other similar environments without the proper variables and such."
+Usage="Usage: \$ $(basename "$0") command [args]
+This is a wrapper script for commands that need to be executed with the DBUS_SESSION_BUS_ADDRESS
+environment variable set properly first. Just prefix your command with this one and it will
+automatically set the environment appropriately, then execute your command.
+This is useful for environments like cron that don't have the right dbus environment set up."
 
 function main {
 
@@ -24,7 +25,7 @@ function main {
     fail "Error: Could not find the DBUS_SESSION_BUS_ADDRESS."
   fi
 
-  gsettings "$@"
+  "$@"
 }
 
 function fail {
