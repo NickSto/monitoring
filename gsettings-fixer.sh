@@ -10,13 +10,17 @@ ScriptDir=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
 source "$ScriptDir/dbuslib.sh"
 
 DefaultPowerLog="$HOME/aa/computer/logs/power.log"
-Usage="Usage: \$ $(basename "$0") [options] [power.log]"
+Usage="Usage: \$ $(basename "$0") [options] [power.log]
+Options:
+-v: Verbose mode."
 
 function main {
 
   # Get arguments.
-  while getopts "h" opt; do
+  verbose=
+  while getopts "vh" opt; do
     case "$opt" in
+      v) verbose=true;;
       [h?]) fail "$Usage";;
     esac
   done
@@ -31,6 +35,9 @@ function main {
 
   dbus_address=$(get_dbus_address)
   if [[ "$dbus_address" ]]; then
+    if [[ "$verbose" ]]; then
+      printf "%s\tGot dbus address '%s'\n" "$(date)" "$dbus_address" >&2
+    fi
     export DBUS_SESSION_BUS_ADDRESS="$dbus_address"
   else
     fail "Error: Could not find the DBUS_SESSION_BUS_ADDRESS."
@@ -39,6 +46,9 @@ function main {
   set +e
   tail -n 0 -f "$power_log" | while read timestamp timing event; do
     if [[ "$event" == 'lock' ]] && [[ "$timing" == 'post' ]]; then
+      if [[ "$verbose" ]]; then
+        printf '%s\tToggling natural scrolling.\n' "$(date)" >&2
+      fi
       gsettings set org.gnome.desktop.peripherals.mouse natural-scroll false
       gsettings set org.gnome.desktop.peripherals.mouse natural-scroll true
     fi
