@@ -6,7 +6,7 @@ fi
 set -ue
 
 TypeDefault=total
-CacheLogDefault=$HOME/aa/computer/logs/cacheplan.tsv
+CacheLogDefault="$HOME/aa/computer/logs/cacheplan.tsv"
 YMinDefault=-1
 YMaxDefault=20
 RateAwkScript='
@@ -28,38 +28,38 @@ defaults $YMinDefault to $YMaxDefault. For \"total\", it's in GB, with defaults 
 value observed."
 
 function main {
-  if [[ $# -ge 1 ]] && ([[ $1 == '-h' ]] || [[ $1 == '--help' ]]); then
+  if [[ "$#" -ge 1 ]] && ([[ "$1" == '-h' ]] || [[ "$1" == '--help' ]]); then
     fail "$Usage"
   fi
 
-  type=$TypeDefault
-  if [[ $# -ge 1 ]]; then
-    type=$1
+  type="$TypeDefault"
+  if [[ "$#" -ge 1 ]]; then
+    type="$1"
   fi
   cache_log="$CacheLogDefault"
-  if [[ $# -ge 2 ]]; then
+  if [[ "$#" -ge 2 ]]; then
     cache_log="$2"
   fi
   user_set_y_range=
-  y_min=$YMinDefault
-  if [[ $# -ge 3 ]]; then
+  y_min="$YMinDefault"
+  if [[ "$#" -ge 3 ]]; then
     user_set_y_range=true
-    y_min=$3
+    y_min="$3"
   fi
-  y_max=$YMaxDefault
-  if [[ $# -ge 4 ]]; then
-    y_max=$4
+  y_max="$YMaxDefault"
+  if [[ "$#" -ge 4 ]]; then
+    y_max="$4"
   fi
 
-  if [[ $user_set_y_range ]]; then
+  if [[ "$user_set_y_range" ]]; then
     y_range="--y-range $y_min $y_max"
   else
     y_range=
   fi
 
-  if [[ $type == total ]]; then
+  if [[ "$type" == total ]]; then
     awk "$TotalAwkScript" "$cache_log" | scatterplot.py --grid -T 'Cache size' -X 'Weeks ago' -Y GB $y_range
-  elif [[ $type == rate ]]; then
+  elif [[ "$type" == rate ]]; then
     awk "$RateAwkScript" "$cache_log" | scatterplot.py --grid -T 'Cache growth rate' -X 'Weeks ago' -Y KB/s $y_range
   else
     fail "Error: Invalid graph type \"$type\"."
