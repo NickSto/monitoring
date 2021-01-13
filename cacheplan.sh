@@ -9,15 +9,14 @@ TypeDefault=total
 CacheLogDefault="$HOME/aa/computer/logs/cacheplan.tsv"
 YMinDefault=-1
 YMaxDefault=20
-RateAwkScript='
-last_time && last_size {
-  print ($1-'$(date +%s)')/60/60/24/7, ($2-last_size)/($1-last_time)/1024
+AwkScript='
+last_time && last_size && $1 != last_time {
+  print $1, ($2-last_size)/($1-last_time)/1024/1024
 }
 {
   last_time=$1
   last_size=$2
 }'
-TotalAwkScript='{print ($1-'$(date +%s)')/60/60/24/7, $2/1024/1024/1024}'
 
 Usage="Usage: \$ $(basename $0) [graph_type [cache_log.tsv [y_min [y_max]]]
 graph types:
@@ -58,11 +57,15 @@ function main {
   fi
 
   if [[ "$type" == total ]]; then
-    awk "$TotalAwkScript" "$cache_log" | scatterplot.py --grid -T 'Cache size' -X 'Weeks ago' -Y GB $y_range
+    awk '{print $1, $2/1024/1024/1024}' "$cache_log" \
+      | scatterplot.py --grid --title 'Cache size' --unix-time x --time-unit year --y-label GB \
+        $y_range
   elif [[ "$type" == rate ]]; then
-    awk "$RateAwkScript" "$cache_log" | scatterplot.py --grid -T 'Cache growth rate' -X 'Weeks ago' -Y KB/s $y_range
+    awk "$AwkScript" "$cache_log" \
+      | scatterplot.py --grid --title 'Cache growth rate' --unix-time x --time-unit year \
+        --y-label 'MB/s' $y_range
   else
-    fail "Error: Invalid graph type \"$type\"."
+    fail "Error: Invalid graph type '$type'."
   fi
 
 }
