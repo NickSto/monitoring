@@ -89,12 +89,6 @@ function main {
       ylabel='Latency (milliseconds)';;
   esac
 
-  echo \
-"start_time: $start_time
-end_time:   $end_time
-start_hrs:  $start_hrs
-end_hrs:    $end_hrs"
-
   # Read log, transform data, and show plot.
   < "$LogFile" \
   filter_log "$start_time" "$end_time" \
