@@ -8,24 +8,29 @@ set -ue
 LogFile="$HOME/aa/computer/logs/upmonitor.tsv"
 PlotScript="$HOME/code/python/single/scatterplot.py"
 HoursDefault=12
-Usage="Usage: \$ $(basename "$0") [-l|-i|-n] [-s start_at] [hours]
+Usage="Usage: \$ $(basename "$0") [-l|-i|-n] [-s start_at | -t timestamp] [hours]
 Default number of hours to show: $HoursDefault
 -s: Start this many hours ago (default: same as the number of hours to show).
+-t: Start at this unix timestamp.
 -l: Show Y axis as Log10(latency) (default).
 -i: Invert the Y axis, showing 100/latency.
 -n: Show Y axis as raw millisecond values."
 
 function main {
 
+  now=$(date +%s)
+
   # Get arguments.
   transform="log"
-  start=
-  while getopts "lins:h" opt; do
+  start_time=
+  start_hrs=
+  while getopts "lins:t:h" opt; do
     case "$opt" in
       i) transform="inverse";;
       n) transform="normal";;
       l) transform="log";;
-      s) start="$OPTARG";;
+      s) start_hrs="$OPTARG";;
+      t) start_time="$OPTARG";;
       [h?]) fail "$Usage";;
     esac
   done
@@ -33,8 +38,10 @@ function main {
   if ! [[ "$hours" ]]; then
     hours="$HoursDefault"
   fi
-  if ! [[ "$start" ]]; then
-    start="$hours"
+  if [[ "$start_time" ]]; then
+    start_hrs=$(calc "($now-$start_time)/60/60")
+  elif ! [[ "$start_hrs" ]]; then
+    start_hrs="$hours"
   fi
 
   # Find the plotting script.
@@ -51,8 +58,6 @@ function main {
     fail "Error: log file missing: \"$LogFile\""
   fi
 
-  now=$(date +%s)
-
   # Figure out sampling rate.
   sampling=$(calc "round($hours/10)")
   if [[ "$sampling" -le 0 ]]; then
@@ -65,9 +70,11 @@ function main {
   fi
 
   # Figure out start and end of displayed period.
-  end=$(calc "$start-$hours")
-  start_sec=$(calc "$now - $start*60*60")
-  end_sec=$(calc "$now - $end*60*60")
+  end_hrs=$(calc "max($start_hrs-$hours, 0)")
+  if ! [[ "$start_time" ]]; then
+    start_time=$(calc "$now - $start_hrs*60*60")
+  fi
+  end_time=$(calc "$now - $end_hrs*60*60")
 
   # Figure out plot labels.
   case "$transform" in
@@ -82,13 +89,19 @@ function main {
       ylabel='Latency (milliseconds)';;
   esac
 
+  echo \
+"start_time: $start_time
+end_time:   $end_time
+start_hrs:  $start_hrs
+end_hrs:    $end_hrs"
+
   # Read log, transform data, and show plot.
   < "$LogFile" \
-    filter_log "$start_sec" "$end_sec" \
+  filter_log "$start_time" "$end_time" \
     | convert_log_times "$now" \
     | transform_log "$transform" \
     | "$plot_script" --grid --x-field 1 --y-field 2 --tag-field 3 --title "$title" \
-      --x-range "-$start" "-$end" --x-label 'Hours ago' --point-size 5 --y-label "$ylabel"
+      --x-range "-$start_hrs" "-$end_hrs" --x-label 'Hours ago' --point-size 5 --y-label "$ylabel"
 }
 
 function awkt {
@@ -96,7 +109,7 @@ function awkt {
 }
 
 function filter_log {
-  awkt -v "start_sec=$1" -v "end_sec=$2" '$2 > start_sec && $2 < end_sec'
+  awkt -v "start_time=$1" -v "end_time=$2" '$2 > start_time && $2 < end_time'
 }
 
 function convert_log_times {
