@@ -5,16 +5,17 @@ if [ x$BASH = x ] || [ ! $BASH_VERSINFO ] || [ $BASH_VERSINFO -lt 4 ]; then
 fi
 set -ue
 
-LogFile="$HOME/aa/computer/logs/upmonitor.tsv"
+LogFileDefault="$HOME/aa/computer/logs/upmonitor.tsv"
 PlotScript="$HOME/code/python/single/scatterplot.py"
 HoursDefault=12
-Usage="Usage: \$ $(basename "$0") [-l|-i|-n] [-s start_at | -t timestamp] [hours]
+Usage="Usage: \$ $(basename "$0") [-l|-i|-n] [-L logfile.tsv] [-s start_at | -t timestamp] [hours]
 Default number of hours to show: $HoursDefault
 -s: Start this many hours ago (default: same as the number of hours to show).
 -t: Start at this unix timestamp.
 -l: Show Y axis as Log10(latency) (default).
 -i: Invert the Y axis, showing 100/latency.
--n: Show Y axis as raw millisecond values."
+-n: Show Y axis as raw millisecond values.
+-L: Display this log file instead of the default ($LogFileDefault)."
 
 function main {
 
@@ -24,13 +25,15 @@ function main {
   transform="log"
   start_time=
   start_hrs=
-  while getopts "lins:t:h" opt; do
+  log_file="$LogFileDefault"
+  while getopts "lins:t:L:h" opt; do
     case "$opt" in
       i) transform="inverse";;
       n) transform="normal";;
       l) transform="log";;
       s) start_hrs="$OPTARG";;
       t) start_time="$OPTARG";;
+      L) log_file="$OPTARG";;
       [h?]) fail "$Usage";;
     esac
   done
@@ -43,6 +46,9 @@ function main {
   elif ! [[ "$start_hrs" ]]; then
     start_hrs="$hours"
   fi
+  if ! [[ -s "$log_file" ]]; then
+    fail "Error: log file missing: \"$log_file\""
+  fi
 
   # Find the plotting script.
   plot_script=$(which scatterplot.py)
@@ -52,10 +58,6 @@ function main {
     else
       fail "Error: plotting script not found or not executable: \"$plot_script\""
     fi
-  fi
-
-  if ! [[ -s "$LogFile" ]]; then
-    fail "Error: log file missing: \"$LogFile\""
   fi
 
   # Figure out sampling rate.
@@ -90,7 +92,7 @@ function main {
   esac
 
   # Read log, transform data, and show plot.
-  < "$LogFile" \
+  < "$log_file" \
   filter_log "$start_time" "$end_time" \
     | convert_log_times "$now" \
     | transform_log "$transform" \
