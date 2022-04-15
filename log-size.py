@@ -8,7 +8,7 @@ import sys
 import time
 from utillib import simplewrap
 
-DESCRIPTION = """Log the size of a file over time.
+DESCRIPTION = """Log the size of a file.
 This outputs a single line with 4-6 tab-delimited columns:
 1. The unix timestamp of when this script was executed.
 2. The path of the target file, as given to this script. If --no-path is given, this column will \
@@ -20,18 +20,19 @@ size is known, i.e. when a non-empty --outfile is provided. Otherwise this colum
 --lines flag is given. Otherwise, the entire column is omitted.
 6. The rate of growth of the file, in lines per second. This column is only included when the \
 --lines flag is given AND the previous line count is known."""
+EPILOG = """Note: If --lines is given, this will count both bytes and lines with `wc`. Otherwise, \
+it will just use `os.path.getsize()`."""
 
 
 def make_argparser():
   parser = argparse.ArgumentParser(
-    add_help=False, description=simplewrap.wrap(DESCRIPTION, lspace=3, indent=-3),
-    formatter_class=argparse.RawDescriptionHelpFormatter
+    add_help=False, formatter_class=argparse.RawDescriptionHelpFormatter,
+    description=simplewrap.wrap(DESCRIPTION, lspace=3, indent=-3),
+    epilog=simplewrap.wrap(EPILOG)
   )
   options = parser.add_argument_group('Options')
   options.add_argument('target', type=pathlib.Path,
     help='The file to watch.')
-  options.add_argument('-i', '--interval', type=float, default=1,
-    help='How often to check the file size, in minutes. Default: %(default)s')
   options.add_argument('-l', '--lines', action='store_true',
     help='Output the number of lines in addition to the number of bytes.')
   options.add_argument('-o', '--outfile', type=pathlib.Path,
@@ -41,6 +42,11 @@ def make_argparser():
   options.add_argument('-P', '--no-path', dest='path', action='store_false', default=True,
     help="Omit the path from the output. This just replaces the path with '.' and doesn't affect "
       'the number of output columns.')
+  options.add_argument('-w', '--watch', action='store_true',
+    help='Keep running, watching the file and printing a line every --interval minutes. If the '
+      'target file does not exist when this checks, it will not output anything and wait again.')
+  options.add_argument('-i', '--interval', type=float, default=1,
+    help='How often to check the file size, in minutes. Default: %(default)s')
   options.add_argument('-h', '--help', action='help',
     help='Print this argument help text and exit.')
   logs = parser.add_argument_group('Logging')
@@ -61,57 +67,76 @@ def main(argv):
 
   logging.basicConfig(stream=args.log, level=args.volume, format='%(message)s')
 
+  loop = 0
   last_timestamp, last_bytes, last_lines = None, None, None
-  if args.outfile and args.outfile.is_file():
-    try:
-      last_timestamp, last_bytes, last_lines = read_last_log(args.outfile)
-    except ParseError:
-      pass
 
-  if not args.target.is_file():
-    fail('Error: Target file not found or is not a regular file.')
+  while True:
 
-  fields = []
+    loop += 1
+    if args.watch and loop > 1:
+      try:
+        time.sleep(args.interval*60)
+      except KeyboardInterrupt:
+        break
 
-  timestamp = int(time.time())
-  fields.append(timestamp)
+    if not args.watch and args.outfile and args.outfile.is_file():
+      try:
+        last_timestamp, last_bytes, last_lines = read_last_log(args.outfile)
+      except ParseError:
+        pass
 
-  if args.path:
-    fields.append(args.target)
-  else:
-    fields.append('.')
+    if not args.target.is_file():
+      if args.watch:
+        continue
+      else:
+        fail('Error: Target file not found or is not a regular file.')
 
-  # Get the file size.
-  if args.lines:
-    size_lines, size_words, size_bytes = get_wc_size(args.target)
-    fields.extend([size_bytes, '.', size_lines])
-  else:
-    size_bytes = os.path.getsize(args.target)
-    size_lines = None
-    fields.append(size_bytes)
+    fields = []
 
-  # Get the change in size, if we got the last counts from a log file.
-  if last_timestamp and last_timestamp != timestamp:
-    elapsed = timestamp - last_timestamp
-    bytes_per_sec = (size_bytes - last_bytes) / elapsed
-    bytes_per_sec_str = f'{bytes_per_sec:0.5f}'
-    if len(fields) == 3:
-      fields.append(bytes_per_sec_str)
-    elif len(fields) == 5:
-      fields[3] = bytes_per_sec_str
-    if size_lines is not None and last_lines is not None:
-      lines_per_sec = (size_lines - last_lines) / elapsed
-      if len(fields) == 5:
-        fields.append(f'{lines_per_sec:0.5f}')
+    timestamp = int(time.time())
+    fields.append(timestamp)
 
-  # Write the output.
-  if args.outfile:
-    outstream = args.outfile.open('a')
-  else:
-    outstream = sys.stdout
-  print(*fields, sep='\t', file=outstream)
-  if outstream is not sys.stdout:
-    outstream.close()
+    if args.path:
+      fields.append(args.target)
+    else:
+      fields.append('.')
+
+    # Get the file size.
+    if args.lines:
+      size_lines, size_words, size_bytes = get_wc_size(args.target)
+      fields.extend([size_bytes, '.', size_lines])
+    else:
+      size_bytes = os.path.getsize(args.target)
+      size_lines = None
+      fields.append(size_bytes)
+
+    # Get the change in size, if we got the last counts from a log file.
+    if last_timestamp and last_timestamp != timestamp:
+      elapsed = timestamp - last_timestamp
+      bytes_per_sec = (size_bytes - last_bytes) / elapsed
+      bytes_per_sec_str = f'{bytes_per_sec:0.5f}'
+      if len(fields) == 3:
+        fields.append(bytes_per_sec_str)
+      elif len(fields) == 5:
+        fields[3] = bytes_per_sec_str
+      if size_lines is not None and last_lines is not None:
+        lines_per_sec = (size_lines - last_lines) / elapsed
+        if len(fields) == 5:
+          fields.append(f'{lines_per_sec:0.5f}')
+
+    # Write the output.
+    if args.outfile:
+      outstream = args.outfile.open('a')
+    else:
+      outstream = sys.stdout
+    print(*fields, sep='\t', file=outstream)
+    if outstream is not sys.stdout:
+      outstream.close()
+
+    last_timestamp, last_bytes, last_lines = timestamp, size_bytes, size_lines
+
+    if not args.watch:
+      break
 
 
 def read_last_log(log_path):
