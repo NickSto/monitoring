@@ -18,7 +18,8 @@ AwkScript='{
 Now=$(date +%s)
 DefaultTabsLog="$HOME/aa/computer/logs/tabs.tsv"
 DefaultStartTime=1518701800
-SessionScript=${SessionScript:-"$HOME/code/python/single/firefox-sessions.py"}
+SessionScript=${SessionScript:-firefox-sessions.py}
+SessionScriptDir=${SessionScriptDir:-"$HOME/code/python/single"}
 Usage="Usage: \$ $(basename $0) [-g] [-c] [-t tabs_log.tsv] [-s start_time]
 -t: The tabs log tsv file.
 -n: Show tab counts taken during browsing sessions, instead of at the end.
@@ -49,12 +50,16 @@ function main {
 
   # Notify the current number of tabs, if requested.
   if [[ "$current" ]]; then
-    if ! [[ -x "$SessionScript" ]]; then
+    if which "$SessionScript" >/dev/null 2>/dev/null; then
+      session_script="$SessionScript"
+    elif [[ -x "$SessionScriptDir/$SessionScript" ]]; then
+      session_script="$SessionScriptDir/$SessionScript"
+    else
       fail "Error: script $SessionScript missing."
     fi
     # Get the number of tabs in the main (biggest) window, and in all windows.
-    read main total <<< $("$SessionScript" -T | awk "$AwkScript")
-    session_file=$("$SessionScript" --print-path)
+    read main total <<< $("$session_script" --tsv | awk "$AwkScript")
+    session_file=$("$session_script" --print-path)
     modified=$(stat -c "%Y" "$session_file")
     age_seconds=$((Now-modified))
     age_human=$(human_time "$age_seconds")
@@ -104,7 +109,7 @@ function main {
 
   # 1481753483 is the last entry with over a thousand tabs, before the big, automated cleanup.
   awk -F '\t' '$1 >= '"$start_time"' && $5 '"$now_cmp"' "now" {print $1, $2}' "$tabs_log" \
-    | scatterplot.py --unix-time X --date -S 6 \
+    | scatterplot.py --grid --unix-time X --date --point-size 1 \
       -T 'Tabs over time'$'\n'"$now_title" -Y 'Tabs in main window'
 }
 
