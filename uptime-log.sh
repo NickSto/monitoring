@@ -6,15 +6,16 @@ fi
 set -ue
 
 DataDir="$HOME/.local/share/nbsdata"
-UptimeFile="$DataDir/uptime-current.txt"
-Usage="Usage: \$ $(basename $0) log-file.tsv
+UptimeFileDefault="$DataDir/uptime-current.txt"
+Usage="Usage: \$ $(basename $0) log-file.tsv [uptime-current.txt]
 This will log the length of each uptime to a file.
 Run it via a cron job every minute. Or you can use a different interval, but that will be the
 precision of its uptime measurement.
 It works by logging the current uptime to a file every time it runs. But before overwriting the
 previous value it checks to see if the previous one was greater than the current. If so, there must
 have been a reboot in-between.
-The current uptime, in seconds, is stored in $UptimeFile
+The current uptime, in seconds, is stored in the file given by the optional second argument
+(or if not given, $UptimeFileDefault)
 The log file is tab-delimited, with 5 columns:
 1. time of last shutdown (unix timestamp)
 2. length of the last uptime (in seconds)
@@ -24,10 +25,14 @@ The log file is tab-delimited, with 5 columns:
 
 function main {
 
+  uptime_file="$UptimeFileDefault"
   if [[ "$#" -lt 1 ]] || [[ "$1" == '-h' ]] || [[ "$1" == '--help' ]]; then
     fail "$Usage"
   else
     log_file="$1"
+    if [[ "$#" -ge 2 ]]; then
+      uptime_file="$2"
+    fi
   fi
 
   if ! [[ -e /proc/uptime ]]; then
@@ -37,11 +42,11 @@ function main {
   # Get the uptime in seconds from /proc/uptime.
   # The sed command gets the first number, without the decimal point.
   current_uptime=$(sed -E 's/^([0-9]+)\..*$/\1/' /proc/uptime)
-  if [[ -s "$UptimeFile" ]]; then
-    last_uptime=$(cat "$UptimeFile")
+  if [[ -s "$uptime_file" ]]; then
+    last_uptime=$(cat "$uptime_file")
     if [[ "$current_uptime" -lt "$last_uptime" ]]; then
       # We must've rebooted if the current uptime is less than the previous one.
-      shutdown_time=$(stat -c %Y "$UptimeFile")
+      shutdown_time=$(stat -c %Y "$uptime_file")
       last_uptime_human=$(human_time "$last_uptime")
       startup_time_human=$(date -d @$((shutdown_time-last_uptime)))
       shutdown_time_human=$(date -d "@$shutdown_time")
@@ -51,7 +56,7 @@ function main {
         >> "$log_file"
     fi
   fi
-  printf '%d\n' "$current_uptime" > "$UptimeFile"
+  printf '%d\n' "$current_uptime" > "$uptime_file"
 
 }
 
