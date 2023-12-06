@@ -7,12 +7,13 @@ set -ue
 
 DataDir="$HOME/.local/share/nbsdata"
 UptimeFile="$DataDir/uptime-current.txt"
-SleepTime=1m
-
 Usage="Usage: \$ $(basename $0) log-file.tsv
-This is a daemon which, if run on startup, will log the previous uptime to a log file and then
-periodically record the current uptime (to be logged on the next restart). The sleep time between
-checks is $SleepTime. This means the precision of all information is limited by that.
+This will log the length of each uptime to a file.
+Run it via a cron job every minute. Or you can use a different interval, but that will be the
+precision of its uptime measurement.
+It works by logging the current uptime to a file every time it runs. But before overwriting the
+previous value it checks to see if the previous one was greater than the current. If so, there must
+have been a reboot in-between.
 The current uptime, in seconds, is stored in $UptimeFile
 The log file is tab-delimited, with 5 columns:
 1. time of last shutdown (unix timestamp)
@@ -33,22 +34,25 @@ function main {
     fail "Error: /proc/uptime missing."
   fi
 
+  # Get the uptime in seconds from /proc/uptime.
+  # The sed command gets the first number, without the decimal point.
+  current_uptime=$(sed -E 's/^([0-9]+)\..*$/\1/' /proc/uptime)
   if [[ -s "$UptimeFile" ]]; then
-    shutdown_time=$(stat -c %Y "$UptimeFile")
     last_uptime=$(cat "$UptimeFile")
-    last_uptime_human=$(human_time "$last_uptime")
-    startup_time_human=$(date -d @$((shutdown_time-last_uptime)))
-    shutdown_time_human=$(date -d "@$shutdown_time")
-    echo -e "$shutdown_time\t$last_uptime\t$last_uptime_human\t$startup_time_human\t$shutdown_time_human\t." \
-      >> "$log_file"
+    if [[ "$current_uptime" -lt "$last_uptime" ]]; then
+      # We must've rebooted if the current uptime is less than the previous one.
+      shutdown_time=$(stat -c %Y "$UptimeFile")
+      last_uptime_human=$(human_time "$last_uptime")
+      startup_time_human=$(date -d @$((shutdown_time-last_uptime)))
+      shutdown_time_human=$(date -d "@$shutdown_time")
+      printf '%d\t%d\t%s\t%s\t%s\t.\n' \
+        "$shutdown_time" "$last_uptime" "$last_uptime_human" "$startup_time_human" \
+        "$shutdown_time_human" \
+        >> "$log_file"
+    fi
   fi
+  printf '%d\n' "$current_uptime" > "$UptimeFile"
 
-  while true; do
-    # Get the uptime in seconds from /proc/uptime.
-    # The sed command gets the first number, without the decimal point.
-    sed -E 's/^([0-9]+)\..*$/\1/' /proc/uptime > "$UptimeFile"
-    sleep "$SleepTime"
-  done
 }
 
 
